@@ -1,7 +1,25 @@
 {
 	"name": "@laot/bridge",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"description": "LTBridge CLI for fetching and bundling FiveM modules.",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/laot7490/ltbridge.git"
+	},
+	"author": "laot",
+	"keywords": [
+		"fivem",
+		"lua",
+		"bridge",
+		"module-manager",
+		"bundler",
+		"cli",
+		"gta5",
+		"redm",
+		"laot",
+		"ltbridge"
+	],
 	"main": "dist/ltbridge.js",
 	"scripts": {
 		"build": "node scripts/compiler.js && esbuild bin/ltbridge.js --bundle --minify --platform=node --target=node18 --packages=external --outfile=dist/ltbridge.js",
