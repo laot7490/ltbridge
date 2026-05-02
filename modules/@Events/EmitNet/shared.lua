@@ -17,7 +17,7 @@ local isServer <const> = IsDuplicityVersion()
 --- emitNet('exampleEvent', source, 'arg1', 'arg2')
 --- ```
 --- @param name string Event name
---- @param ...? any
+--- @param ...? any Event arguments (Optional)
 --- @ltbridge export: EmitNet
 function EventEmitNet(name, ...)
     local eventName = GetEventName(name, true)

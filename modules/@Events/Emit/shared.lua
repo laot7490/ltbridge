@@ -6,8 +6,8 @@
 --- -- Client example:
 --- emit('event', 'arg1', 'arg2')
 --- ```
---- @param name string
---- @param ...? any
+--- @param name string Event name
+--- @param ...? any Event arguments (Optional)
 --- @ltbridge export: Emit
 function EventEmit(name, ...)
     TriggerEvent(GetEventName(name), ...)

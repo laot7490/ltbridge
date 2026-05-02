@@ -113,7 +113,7 @@ function InitLocale(key, fileType)
     else
         local fn, err = load(file, ('@@%s/locales/%s.lua'):format(LT_RESOURCE_NAME, key))
         if not fn then
-            printf('error', corruptedMsg .. '\n^1%s^7\n', key, err)
+            printf('error', '%s\n^1%s^7\n', corruptedMsg, key, err)
             return
         end
         locales = fn()
@@ -183,4 +183,16 @@ end
 function GetLocaleStrings(keepNesting)
     local returnDict = dict or {}
     return keepNesting and unflattenDict(returnDict) or returnDict
+end
+
+--- Returns the current locale key.
+--- @return string?
+--- @ltbridge export: GetCurrentKey
+function GetCurrentLocaleKey()
+    if not currentLocale then
+        printf('error', 'No locale has been initialized. Please call `LT.Locale.Init` first.')
+        return
+    end
+
+    return currentLocale
 end
