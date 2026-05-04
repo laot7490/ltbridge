@@ -14,9 +14,12 @@ local function extractSemver(s)
     return s:match('%d+%.%d+%.%d+')
 end
 
-local function printVersionStatus(resourceName, msgs, currentShown, remoteShown, needsUpdate, downloadLink)
+local function printVersionStatus(resourceName, msgs, currentShown, remoteShown, needsUpdate, downloadLink,
+    sendUpToDate)
     if not needsUpdate then
-        print(format(msgs.upToDate, resourceName, currentShown))
+        if sendUpToDate then
+            print(format(msgs.upToDate, resourceName, currentShown))
+        end
         return
     end
     print(format(msgs.updateAvailable, resourceName, currentShown, remoteShown))
@@ -41,11 +44,15 @@ local function parseRemoteFromUrlBody(fileType, body, resourceName)
     return nil
 end
 
---- Compares resource version against GitHub latest release or a remote JSON / PLAIN URL.
---- 
---- `data`: use `repository` or `repo`, **or** `url`. JSON expects `{ [resourceName] = "x.y.z" }`.
---- 
---- Optional `messages`: `{ upToDate, updateAvailable, download }` format strings for console output.
+--- Compares `GetResourceMetadata(..., 'version')` to GitHub latest release or a remote URL.
+---
+--- `data` (pick GitHub **or** URL mode):
+--- - `repository` / `repo`: `owner/repo`; semver from latest non-prerelease `tag_name`.
+--- - `url` + optional `fileType` (`JSON` default, or `PLAIN`): remote version string or JSON map keyed by `resourceName`.
+--- - `resourceName`, `downloadUrl`: optional overrides (name defaults to current resource).
+--- - `sendUpToDate`: set `true` to print when already current; default is silent (no up-to-date line).
+---
+--- `messages`: optional `{ upToDate, updateAvailable, download }` printf-style format strings.
 --- @param data table
 --- @param messages? table
 --- @ltbridge export: Check
@@ -57,6 +64,7 @@ function CheckVersion(data, messages)
     end
 
     local msgs <const> = resolvePrintFormats(messages)
+    local sendUpToDate <const> = data and data.sendUpToDate == true
     local repo <const> = data and (data.repository or data.repo) or nil
 
     if repo ~= nil then
@@ -77,7 +85,7 @@ function CheckVersion(data, messages)
                 local latestSemver = extractSemver(payload.tag_name)
                 local needsUpdate = latestSemver ~= nil and latestSemver ~= currentSemver
                 printVersionStatus(resourceName, msgs, currentSemver, latestSemver or '', needsUpdate,
-                    needsUpdate and (payload.html_url or '') or '')
+                    needsUpdate and (payload.html_url or '') or '', sendUpToDate)
             end, 'GET')
 
         return
@@ -97,6 +105,7 @@ function CheckVersion(data, messages)
         if not remoteVersion or remoteVersion == '' then return end
 
         local needsUpdate = currentVersion ~= remoteVersion
-        printVersionStatus(resourceName, msgs, currentVersion, remoteVersion, needsUpdate, downloadURL)
+        printVersionStatus(resourceName, msgs, currentVersion, remoteVersion, needsUpdate, downloadURL,
+            sendUpToDate)
     end, 'GET')
 end
