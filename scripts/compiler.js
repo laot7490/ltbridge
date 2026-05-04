@@ -370,8 +370,6 @@ function compile() {
 				formsToExport.push(stub.funcName);
 				if (stub.metadata.alias) stub.metadata.alias.forEach((al) => formsToExport.push(`${prefixStr}${al}`));
 
-				if (stub.metadata.internal) continue;
-
 				for (const form of formsToExport) {
 					if (!db.exportMap[form]) db.exportMap[form] = [];
 					if (!db.exportMap[form].includes(modName)) db.exportMap[form].push(modName);
