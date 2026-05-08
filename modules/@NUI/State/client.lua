@@ -26,6 +26,31 @@ end
 local RootState = {}
 RootState.__index = RootState
 
+function RootState:raw()
+    return self._internal
+end
+
+local function __ltbridge_snapshot(v)
+    local mt = type(v) == 'table' and getmetatable(v) or nil
+    if mt and mt.__isProxy and mt.__raw then
+        v = mt.__raw
+    end
+    if type(v) ~= 'table' then return v end
+    local out = {}
+    for k, child in pairs(v) do
+        if type(child) == 'table' then
+            out[k] = __ltbridge_snapshot(child)
+        else
+            out[k] = child
+        end
+    end
+    return out
+end
+
+function RootState:snapshot()
+    return __ltbridge_snapshot(self._internal)
+end
+
 function RootState:queueUpdate(key, value)
     local current = self._batch
     local parts = {}
@@ -119,10 +144,10 @@ local function buildProxy(tbl, path, root, ctx)
                         proxy = buildProxy(v, newPath, root, newCtx)
                     }
                 end
-                
+
                 return childProxies[k].proxy
             end
-            
+
             return v
         end,
         __newindex = function(_, k, v)
@@ -148,6 +173,7 @@ local function buildProxy(tbl, path, root, ctx)
                 childProxies[k].ctx.detached = true
                 childProxies[k] = nil
             end
+
         end,
         __pairs = function()
             local function proxy_iter(_, k)
@@ -160,7 +186,7 @@ local function buildProxy(tbl, path, root, ctx)
         end,
         __len = function() return #internal end
     })
-    
+
     return proxy
 end
 
@@ -176,6 +202,14 @@ end
 --- 
 --- Hud:sync() -- Sends { action = '..._sync', state = { full_state } }
 --- Hud:update({ health = 100, armor = 50 }) -- Batch update
+--- 
+--- -- Safe serialization / debugging:
+--- local raw = Hud:raw() -- Returns the internal table reference (read-only usage recommended)
+--- local snap = Hud:snapshot() -- Returns a deep-copied plain table safe for json.encode / printing
+---
+--- **Warning:**
+--- `:raw()` returns a live reference to the internal state table. Mutating it directly bypasses reactivity
+--- and may prevent NUI updates from being queued.
 --- ```
 ---
 --- **NUI (Pinia / Vue) Example:**
@@ -202,7 +236,7 @@ end
 --- @param tbl table Initial table data
 --- @param ignoreList? table|string Keys to ignore when sending NUI messages (e.g. {'health', 'stats.stamina'})
 --- @param action? string Action to send NUI (defaults to: 'ltbridge_state_update')
---- @return table proxy The proxy table with methods (:sync, :update)
+--- @return table proxy The proxy table with methods (:sync, :update, :raw, :snapshot)
 --- @ltbridge export: CreateState
 function CreateNUIState(namespace, tbl, ignoreList, action)
     local ignoreHash = {}
