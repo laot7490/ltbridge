@@ -8,7 +8,7 @@
 --- ```
 --- @ltbridge export: Start
 function OnResourceStart(cb, resource)
-    local checkResource = resource or LT_RESOURCE_NAME
+    local checkResource = resource or __LT_RESOURCE_NAME
     AddEventHandler('onResourceStart', function (res)
         if res ~= checkResource then return end
         cb()

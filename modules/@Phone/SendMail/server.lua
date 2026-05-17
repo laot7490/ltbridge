@@ -71,7 +71,7 @@ function SendMail(source, mail, title, message)
     return adapter(source, mail, title, message) or false
 end
 
-RegisterNetEvent(LT_RESOURCE_NAME..':server:@Phone:Send', function(mail, title, message)
+RegisterNetEvent(__LT_RESOURCE_NAME..':server:@Phone:Send', function(mail, title, message)
     local src = source
     SendMail(src, mail, title, message)
 end)

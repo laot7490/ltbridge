@@ -19,5 +19,5 @@ CreateThread(function()
     while not IsPlayerLoaded() do
         Wait(100)
     end
-    TriggerServerEvent(LT_RESOURCE_NAME..':server:@LoadUnload:Loaded')
+    TriggerServerEvent(__LT_RESOURCE_NAME..':server:@LoadUnload:Loaded')
 end)

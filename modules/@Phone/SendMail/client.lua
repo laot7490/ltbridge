@@ -5,6 +5,6 @@
 --- @return boolean
 --- @ltbridge export: SendMail
 function SendMail(mail, title, message)
-    TriggerServerEvent(LT_RESOURCE_NAME..':server:@Phone:Send', mail, title, message)
+    TriggerServerEvent(__LT_RESOURCE_NAME..':server:@Phone:Send', mail, title, message)
     return true
 end

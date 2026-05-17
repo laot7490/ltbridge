@@ -15,5 +15,5 @@
 --- @ltbridge export: Focus
 function NUIFocus(status, cursor)
     SetNuiFocus(status, (cursor == nil and status) or (type(cursor) == "boolean" and cursor))
-    TriggerEvent(LT_RESOURCE_NAME.. ':client:@NUI:FocusChanged', status, cursor)
+    TriggerEvent(__LT_RESOURCE_NAME.. ':client:@NUI:FocusChanged', status, cursor)
 end

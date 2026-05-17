@@ -2,7 +2,7 @@ local pendingCallbacks = {}
 local cbEvent = GetCbEvent()
 local pcall = pcall
 
-RegisterNetEvent(cbEvent:format(LT_RESOURCE_NAME), function(key, ...)
+RegisterNetEvent(cbEvent:format(__LT_RESOURCE_NAME), function(key, ...)
     local cb = pendingCallbacks[key]
     if not cb then return end
 
@@ -17,8 +17,8 @@ local function triggerClientCallback(event, playerId, cb, ...)
         key = ('%s:%s:%s'):format(event, math.random(0, 100000), playerId)
     until not pendingCallbacks[key]
 
-    TriggerClientEvent(LT_RESOURCE_NAME..':cb:validate', playerId, event, key)
-    TriggerClientEvent(cbEvent:format(event), playerId, LT_RESOURCE_NAME, key, ...)
+    TriggerClientEvent(__LT_RESOURCE_NAME..':cb:validate', playerId, event, key)
+    TriggerClientEvent(cbEvent:format(event), playerId, __LT_RESOURCE_NAME, key, ...)
 
     --- @type promise | false
     local p = not cb and promise.new()

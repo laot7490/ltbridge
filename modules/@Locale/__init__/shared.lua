@@ -94,11 +94,11 @@ function InitLocale(key, fileType)
 
     -- JSON
     local locales = nil
-    local file = LoadResourceFile(LT_RESOURCE_NAME, ('locales/%s.%s'):format(key, extension))
+    local file = LoadResourceFile(__LT_RESOURCE_NAME, ('locales/%s.%s'):format(key, extension))
 
     -- Try english fallback.
     if not file then
-        file = LoadResourceFile(LT_RESOURCE_NAME, ('locales/en.%s'):format(extension))
+        file = LoadResourceFile(__LT_RESOURCE_NAME, ('locales/en.%s'):format(extension))
         if not file then
             printf('error', 'Locale file ^3%s^7 and fallback ^3en^7 not found or cannot be loaded. Stopping initialization.', key)
             return
@@ -111,7 +111,7 @@ function InitLocale(key, fileType)
     if extension == 'json' then
         locales = json.decode(file)
     else
-        local fn, err = load(file, ('@@%s/locales/%s.lua'):format(LT_RESOURCE_NAME, key))
+        local fn, err = load(file, ('@@%s/locales/%s.lua'):format(__LT_RESOURCE_NAME, key))
         if not fn then
             printf('error', '%s\n^1%s^7\n', corruptedMsg, key, err)
             return

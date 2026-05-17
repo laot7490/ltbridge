@@ -3,7 +3,7 @@
 --- @return string?
 --- @ltbridge export: Get
 function GetVersion(resourceName)
-    local res = resourceName or LT_RESOURCE_NAME
+    local res = resourceName or __LT_RESOURCE_NAME
     if GetResourceState(res) == 'missing' then return end
     return GetResourceMetadata(res, 'version', 0)
 end

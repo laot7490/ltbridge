@@ -6,5 +6,5 @@
 --- @param time? number Duration in milliseconds. Defaults to 3500.
 --- @ltbridge export: Send
 function SendNotify(source, title, message, variant, time)
-    TriggerClientEvent(LT_RESOURCE_NAME..':client:@Notify:Send', source, title, message, variant, time)
+    TriggerClientEvent(__LT_RESOURCE_NAME..':client:@Notify:Send', source, title, message, variant, time)
 end

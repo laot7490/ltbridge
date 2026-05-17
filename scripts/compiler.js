@@ -1,7 +1,9 @@
 const fs = require("fs-extra");
 const path = require("path");
+const { applyBuildConstants } = require("../src/buildConstants");
 
 const modulesDir = path.join(__dirname, "..", "modules");
+const version = require("../package.json").version;
 const distDir = path.join(__dirname, "..", "dist");
 
 function stripLuaComments(code) {
@@ -281,7 +283,7 @@ function compile() {
 	if (!fs.existsSync(distDir)) fs.mkdirSync(distDir, { recursive: true });
 
 	const db = {
-		version: require("../package.json").version,
+		version: version,
 		modules: {},
 		exportMap: {},
 		registry: {},
@@ -322,7 +324,8 @@ function compile() {
 				if (fs.existsSync(fPath)) {
 					const rawCode = fs.readFileSync(fPath, "utf8");
 					const stubs = extractStubs(rawCode, ns, ctx);
-					const cleanCode = stripLuaComments(rawCode);
+					let cleanCode = stripLuaComments(rawCode);
+					cleanCode = applyBuildConstants(cleanCode, { version: version });
 					modData.files[ctx] = { code: cleanCode, stubs: stubs };
 				}
 			});

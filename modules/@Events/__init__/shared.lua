@@ -13,5 +13,5 @@ function GetEventName(name, remote)
         side = isServer and 'server' or 'client'
     end
 
-    return format('%s:%s:%s', LT_RESOURCE_NAME, side, name)
+    return format('%s:%s:%s', __LT_RESOURCE_NAME, side, name)
 end

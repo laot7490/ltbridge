@@ -1,6 +1,15 @@
 local debugMode = 1
 local print = print
 local string_format = string.format
+local tonumber = tonumber
+
+local debugTypes <const> = {
+    ['success'] = { mode = 3, color = 2 },
+    ['error'] = { mode = 1, color = 1 },
+    ['warning'] = { mode = 2, color = 3 },
+    ['info'] = { mode = 3, color = 4 },
+    ['verbose'] = { mode = 4, color = 5 },
+}
 
 local function handleException(result, value)
     if type(value) == 'function' then
@@ -23,7 +32,6 @@ local function format(message, ...)
 
         elseif type(v) == "table" then
             data[i] = json.encode(v, {
-                sort_keys = true,
                 indent = true,
                 exception = handleException
             })
@@ -56,14 +64,6 @@ function SetDebugMode(mode)
     debugMode = mode or 1
 end
 
-local debugTypes <const> = {
-    ['success'] = { mode = 3, color = 2 },
-    ['error'] = { mode = 1, color = 1 },
-    ['warning'] = { mode = 2, color = 3 },
-    ['info'] = { mode = 3, color = 4 },
-    ['verbose'] = { mode = 4, color = 5 },
-}
-
 --- Prints a formatted and detailed (with file and line info) debug message.
 --- @param message string Message to print.
 --- @param type? 'info'|'success'|'error'|'warning'|'verbose'
@@ -79,10 +79,7 @@ function DebugDetailed(message, type, ...)
     local source = info and info.short_src or 'unknown'
     local line = info and info.currentline or -1
     
-    source = source:gsub("^@", "")
-    local short = source:match("([^/]+/[^/]+%.lua)$") or source:match("([^/]+%.lua)$") or source
-    
-    print(string_format('^3[%s:%d]^7 ^%d[%s]^7 %s^7', short, line, data.color, type:upper(), format(message, ...)))
+    print(string_format('^%d[%s] %s:%d: ^7%s', data.color, type:upper(), source, line, format(message, ...)))
 end
 
 --- Prints a formatted debug message.

@@ -1,4 +1,4 @@
-local cbEvent = ('__%s_cb_%%s'):format(LT_RESOURCE_NAME)
+local cbEvent = ('__%s_cb_%%s'):format(__LT_RESOURCE_NAME)
 local registeredCallbacks = {}
 
 --- Internal function for getting CB event formatted.
@@ -26,12 +26,12 @@ function SetRegisteredCallback(name)
     registeredCallbacks[name] = true
 end
 
-RegisterNetEvent(LT_RESOURCE_NAME..':cb:validate', function(callbackName, key)
+RegisterNetEvent(__LT_RESOURCE_NAME..':cb:validate', function(callbackName, key)
     if registeredCallbacks[callbackName] then return end
 
     if IsDuplicityVersion() then
-        TriggerClientEvent(cbEvent:format(LT_RESOURCE_NAME), source, key, 'cb_invalid')
+        TriggerClientEvent(cbEvent:format(__LT_RESOURCE_NAME), source, key, 'cb_invalid')
     else
-        TriggerServerEvent(cbEvent:format(LT_RESOURCE_NAME), key, 'cb_invalid')
+        TriggerServerEvent(cbEvent:format(__LT_RESOURCE_NAME), key, 'cb_invalid')
     end
 end)

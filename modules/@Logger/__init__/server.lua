@@ -65,9 +65,9 @@ function InitLogger(logType, data)
                 if #LOGGER_TXT_BUFFER > 0 then
                     local date = os.date('%Y-%m-%d')
                     local path = settings.folder .. '/' .. date .. '.txt'
-                    local existing = LoadResourceFile(LT_RESOURCE_NAME, path) or ""
+                    local existing = LoadResourceFile(__LT_RESOURCE_NAME, path) or ""
                     local newData = existing .. table.concat(LOGGER_TXT_BUFFER)
-                    SaveResourceFile(LT_RESOURCE_NAME, path, newData, -1)
+                    SaveResourceFile(__LT_RESOURCE_NAME, path, newData, -1)
 
                     LOGGER_TXT_BUFFER = {}
                 end
@@ -82,7 +82,7 @@ function InitLogger(logType, data)
                         if #embeds < 10 then
                             table.insert(embeds, {
                                 color = log.color,
-                                title = LT_RESOURCE_NAME,
+                                title = __LT_RESOURCE_NAME,
                                 fields = {
                                     {
                                         name = 'Log Message',
@@ -174,7 +174,7 @@ local adapters = {
         local data = {
             level = status or 'info',
             message = tostring(message),
-            resource = LT_RESOURCE_NAME,
+            resource = __LT_RESOURCE_NAME,
         }
         PerformHttpRequest('https://api.fivemerr.com/v1/logs', function(status, text, headers)
             if status ~= 200 then

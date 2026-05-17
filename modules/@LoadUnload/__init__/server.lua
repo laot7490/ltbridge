@@ -8,7 +8,7 @@
 --- ```
 --- @ltbridge global
 function OnPlayerLoad(cb)
-    local eventName = LT_RESOURCE_NAME..':server:@LoadUnload:Loaded'
+    local eventName = __LT_RESOURCE_NAME..':server:@LoadUnload:Loaded'
     RegisterNetEvent(eventName)
     AddEventHandler(eventName, cb)
 end

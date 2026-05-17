@@ -1,6 +1,6 @@
 {
 	"name": "@laot/bridge",
-	"version": "1.0.6",
+	"version": "1.0.7",
 	"description": "LTBridge CLI for fetching and bundling FiveM modules.",
 	"license": "MIT",
 	"repository": {
@@ -23,7 +23,8 @@
 	"main": "dist/ltbridge.js",
 	"scripts": {
 		"build": "node scripts/compiler.js && esbuild bin/ltbridge.js --bundle --minify --platform=node --target=node18 --packages=external --outfile=dist/ltbridge.js",
-		"prepublishOnly": "npm run build"
+		"zip": "node scripts/zip-dist.js",
+		"prepublishOnly": "npm run build && npm run zip"
 	},
 	"bin": {
 		"ltbridge": "./dist/ltbridge.js"

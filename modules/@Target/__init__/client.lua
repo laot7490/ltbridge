@@ -92,7 +92,7 @@ end
 detectTarget()
 
 AddEventHandler('onResourceStop', function(resource)
-    if resource ~= LT_RESOURCE_NAME then return end
+    if resource ~= __LT_RESOURCE_NAME then return end
     for _, zone in pairs(createdZones) do
         RemoveZone(zone)
     end

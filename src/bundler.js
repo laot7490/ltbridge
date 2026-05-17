@@ -1,5 +1,6 @@
 const fs = require("fs-extra");
 const path = require("path");
+const { applyBuildConstants } = require("./buildConstants");
 
 let _exportMapCache = null;
 function getModuleExportMap() {
@@ -160,10 +161,11 @@ function rebuildBundle(targetDir, config, options = {}) {
 		}
 	};
 
-	const targetDebugValue =
-		config.debug === false || config.debug === undefined ? "LT_DISABLE_DEBUG = true" : "LT_DISABLE_DEBUG = false";
+	const disableDebug = config.debug === false || config.debug === undefined;
 	for (const mod of collectedSources) {
-		if (mod.shared) mod.shared = mod.shared.replace(/LT_DISABLE_DEBUG\s*=\s*(true|false)/g, targetDebugValue);
+		if (mod.shared) {
+			mod.shared = applyBuildConstants(mod.shared, { version, disableDebug });
+		}
 	}
 
 	if (doMinify) {
@@ -367,7 +369,7 @@ function rebuildBundle(targetDir, config, options = {}) {
 
 		const generateLoader = (typeStr, items) => {
 			if (items.length === 0) return "";
-			return `-- LTBridge Auto-Generated ${typeStr} Loader\nlocal loadSequence = {\n${items.join(",\n")}\n}\nfor _, modPathSuffix in ipairs(loadSequence) do\n    local modPath = "ltbridge/modules/imports/" .. modPathSuffix\n    local chunk = LoadResourceFile(GetCurrentResourceName(), modPath)\n    if chunk then\n        local fn, err = load(chunk, "@@" .. GetCurrentResourceName() .. "/" .. modPath)\n        if not fn then\n            print("^1[LTBridge] ERROR: Syntax error in module: " .. modPath .. "\\n" .. tostring(err) .. "^7")\n        else\n            fn()\n        end\n    else\n        print("^1[LTBridge] ERROR: Module file not found: " .. modPathSuffix .. "^7")\n    end\nend\n`;
+			return `-- LTBridge Auto-Generated ${typeStr} Loader\nlocal loadSequence = {\n${items.join(",\n")}\n}\nfor _, modPathSuffix in ipairs(loadSequence) do\n    local modPath = "ltbridge/modules/imports/" .. modPathSuffix\n    local chunk = LoadResourceFile(GetCurrentResourceName(), modPath)\n    if chunk then\n        local fn, err = load(chunk, "@@" .. GetCurrentResourceName() .. "/" .. modPath)\n        if not fn then\n            print("^6[LTBridge ${version}] ^1ERROR: Syntax error in module: " .. modPath .. "\\n" .. tostring(err) .. "^7")\n        else\n            fn()\n        end\n    else\n        print("^6[LTBridge ${version}] ^1ERROR: Module file not found: " .. modPathSuffix .. "^7")\n    end\nend\n`;
 		};
 
 		if (hasShared) fs.writeFileSync(path.join(buildDir, "shared.lua"), generateLoader("Shared", loaders.shared));
@@ -376,7 +378,9 @@ function rebuildBundle(targetDir, config, options = {}) {
 		injectManifest(targetDir, hasClient, hasServer, hasShared, true);
 	} else {
 		const getInitBlock = (type) =>
-			`LT = LT or {}\n` + Array.from(bundleRequiredTables[type]).join("\n") + (bundleRequiredTables[type].size > 0 ? `\n\n` : `\n`);
+			`LT = LT or {}\n` +
+			Array.from(bundleRequiredTables[type]).join("\n") +
+			(bundleRequiredTables[type].size > 0 ? `\n\n` : `\n`);
 
 		if (hasShared)
 			fs.writeFileSync(

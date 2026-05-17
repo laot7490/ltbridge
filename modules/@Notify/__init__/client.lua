@@ -109,6 +109,6 @@ function SendNotify(title, message, variant, time)
     adapter(title, message, (time or 3500), (variant or 'info'))
 end
 
-RegisterNetEvent(LT_RESOURCE_NAME..':client:@Notify:Send', function(title, message, variant, time)
+RegisterNetEvent(__LT_RESOURCE_NAME..':client:@Notify:Send', function(title, message, variant, time)
     SendNotify(title, message, variant, time)
 end)

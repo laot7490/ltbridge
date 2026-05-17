@@ -57,7 +57,7 @@ end
 --- @param messages? table
 --- @ltbridge export: Check
 function CheckVersion(data, messages)
-    local resourceName <const> = (data and data.resourceName) or LT_RESOURCE_NAME
+    local resourceName <const> = (data and data.resourceName) or __LT_RESOURCE_NAME
     local currentVersion <const> = GetResourceMetadata(resourceName, 'version', 0)
     if not currentVersion then
         return printf('warning', 'No version found for resource %s.', resourceName)
