@@ -1,5 +1,5 @@
 local resourceName = nil
-local exp = {}
+local export = {}
 
 local list = {
     ['ox_lib'] = {},
@@ -12,6 +12,7 @@ local list = {
     ['wasabi_notify'] = {},
     ['origen_notify'] = {},
     ['lation_ui'] = {},
+    ['qb-notify'] = {}
 }
 
 --- Returns notify resource name.
@@ -29,7 +30,7 @@ function SetNotifyResource(name)
     if not name then return end
     if not list[name] then return printf('error', 'Notify resource ^3%s^7 not found.', name) end
     resourceName = name
-    exp = exports[name]
+    export = exports[name]
 end
 
 local resource = DetectResource(list, 'notify')
@@ -38,60 +39,65 @@ if resource then
 end
 
 local adapters = {
-    ['ox_lib'] = function(title, message, time, variant)
+    ['ox_lib'] = function(title, message, length, variant)
         if variant == 'info' then variant = 'inform' end
-        exp:notify({
+        export:notify({
             title = title,
             description = message,
             type = variant,
-            duration = time,
+            duration = length,
         })
     end,
-    ['lt-ui'] = function(title, message, time, variant)
+    ['lt-ui'] = function(title, message, length, variant)
         if variant == 'info' then variant = 'inform' end
-        exp:notify({
+        export:notify({
             title = title,
             description = message,
             type = variant,
-            duration = time,
+            duration = length,
         })
     end,
-    ['esx_notify'] = function(title, message, time, variant)
+    ['esx_notify'] = function(title, message, length, variant)
         if variant == 'inform' then variant = 'info' end
-        TriggerEvent('esx:showNotification', message, variant, time, title, 'top-left')
+        TriggerEvent('esx:showNotification', message, variant, length, title, 'top-left')
     end,
-    ['okokNotify'] = function(title, message, time, variant)
+    ['okokNotify'] = function(title, message, length, variant)
         if variant == 'inform' then variant = 'info' end
-        exp:Alert(title, message, time, variant)
+        export:Alert(title, message, length, variant)
     end,
-    ['pNotify'] = function(title, message, time, variant)
+    ['pNotify'] = function(title, message, length, variant)
         if variant == 'inform' then variant = 'info' end
-        exp:SendNotification({ title = title, text = message, type = variant, timeout = time })
+        export:SendNotification({ title = title, text = message, type = variant, lengthout = length })
     end,
-    ['mythic_notify'] = function(title, message, time, variant)
+    ['mythic_notify'] = function(title, message, length, variant)
         if variant == 'info' then variant = 'inform' end
-        exp:Notify(variant, message, time)
+        export:Notify(variant, message, length)
     end,
-    ['brutal_notify'] = function(title, message, time, variant)
+    ['brutal_notify'] = function(title, message, length, variant)
         if variant == 'inform' then variant = 'info' end
-        exp:SendAlert(title, message, time, variant)
+        export:SendAlert(title, message, length, variant)
     end,
-    ['wasabi_notify'] = function(title, message, time, variant)
+    ['wasabi_notify'] = function(title, message, length, variant)
         if variant == 'inform' then variant = 'info' end
-        exp:notify(title, message, time, variant)
+        export:notify(title, message, length, variant)
     end,
-    ['origen_notify'] = function(title, message, time, variant)
+    ['origen_notify'] = function(title, message, length, variant)
         if variant == 'inform' then variant = 'info' end
-        exp:ShowNotification(message, variant, time)
+        export:ShowNotification(message, variant, length)
     end,
-    ['lation_ui'] = function(title, message, time, variant)
+    ['lation_ui'] = function(title, message, length, variant)
         if variant == 'inform' then variant = 'info' end
-        exp:notify({
+        export:notify({
             title = title,
             message = message,
-            duration = time,
+            duration = length,
             type = variant
         })
+    end,
+    ['qb-notify'] = function(title, message, length, variant)
+        if variant == 'inform' or variant == 'info' then variant = 'primary' end
+        if variant == 'warning' then variant = 'warn' end
+        export:Notify(message, variant, length)
     end,
 }
 
@@ -99,16 +105,16 @@ local adapters = {
 --- @param title? string Title for notification.
 --- @param message string Notify message.
 --- @param variant? 'success'|'error'|'info'|'warning' Type of notification.
---- @param time? number Duration in milliseconds. Defaults to 3500.
+--- @param length? number Duration in milliseconds. Defaults to 3500.
 --- @ltbridge export: Send
-function SendNotify(title, message, variant, time)
+function SendNotify(title, message, variant, length)
     local name = GetNotifyResource()
     if not name then return end
     local adapter = adapters[name]
     if not adapter then return end
-    adapter(title, message, (time or 3500), (variant or 'info'))
+    adapter(title, message, (length or 3500), (variant or 'info'))
 end
 
-RegisterNetEvent(__LT_RESOURCE_NAME..':client:@Notify:Send', function(title, message, variant, time)
-    SendNotify(title, message, variant, time)
+RegisterNetEvent(__LT_RESOURCE_NAME..':client:@Notify:Send', function(title, message, variant, length)
+    SendNotify(title, message, variant, length)
 end)

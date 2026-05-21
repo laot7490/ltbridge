@@ -1,4 +1,5 @@
 local resourceName = nil
+local export = {}
 
 local list = {
     ['ox_lib'] = {},
@@ -23,6 +24,7 @@ function SetMenuResource(name)
     if not name then return end
     if not list[name] then return printf('error', 'Menu resource ^3%s^7 not found.', name) end
     resourceName = name
+    export = exports[name]
 end
 
 local resource = DetectResource(list, 'menu')
@@ -220,23 +222,23 @@ local adapters = {
         if isQB then
             data = convertQBtoOX(id, data)
         end
-        exports.ox_lib:registerContext(data)
-        exports.ox_lib:showContext(id)
+        export:registerContext(data)
+        export:showContext(id)
         return data
     end,
     ['lt-ui'] = function(id, data, isQB)
         if isQB then
             data = convertQBtoOX(id, data)
         end
-        exports['lt-ui']:registerContext(data)
-        exports['lt-ui']:showContext(id)
+        export:registerContext(data)
+        export:showContext(id)
         return data
     end,
     ['qb-menu'] = function(id, data, isQB)
         if not isQB then
             data = convertOXtoQB(id, data)
         end
-        exports['qb-menu']:openMenu(data)
+        export:openMenu(data)
         return data
     end,
     ['lation_ui'] = function(id, data, isQB)
@@ -245,16 +247,16 @@ local adapters = {
         else
             data = convertOXtoLation(data)
         end
-        exports.lation_ui:registerMenu(data)
-        exports.lation_ui:showMenu(id)
+        export:registerMenu(data)
+        export:showMenu(id)
         return data
     end,
     ['wasabi_uikit'] = function(id, data, isQB)
         if isQB then
             data = convertQBtoWasabi(id, data)
         end
-        exports.wasabi_uikit:RegisterContextMenu(data)
-        exports.wasabi_uikit:OpenContextMenu(id)
+        export:RegisterContextMenu(data)
+        export:OpenContextMenu(id)
         return data
     end,
 }

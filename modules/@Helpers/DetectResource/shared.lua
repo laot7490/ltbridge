@@ -29,13 +29,13 @@ function DetectResource(list, name)
     if #startedResources == 1 then
         return startedResources[1]
     elseif #startedResources > 1 then
-        printf('warning', 'Multiple %s script detected! First resource will be used. Running resources:', name)
+        printf('warning', 'Multiple %s resources detected! First resource will be used. Running resources:', name)
         for i = 1, #startedResources do
             printf(nil, '%d. %s', i, startedResources[i])
         end
         return startedResources[1]
     else
-        printf('error', 'No supported %s script found.', name)
+        printf('error', 'No supported %s resource found. This can cause issues with the resource.', name)
     end
 
     return nil

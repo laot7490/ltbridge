@@ -1,21 +1,29 @@
+local cache = nil
+
 --- This will return the jobs registered in the framework in a table.
---- @return table
+--- @return table<number, { name: string, label: string, grades: table<string, {name: string, label: string, grade: number }>}>
 function GetFrameworkJobs()
+
+    if cache then return cache end
+
+    local jobs = {}
+
     if ESX then
-        return ESX.GetJobs()
+        jobs = ESX.GetJobs()
     elseif QBCore then
-        local jobs = {}
-        for k, v in pairs(QBCore.Shared.Jobs) do
-            jobs[#jobs+1] = {
-                name = k,
-                label = v.label,
-                grade = v.grades
-            }
-        end
-        return jobs
+        jobs = QBCore.Shared.Jobs
     elseif QBX then
-        return QBX:GetJobs()
+        jobs = QBX:GetJobs()
     end
 
-    return {}
+    for k, v in pairs(jobs) do
+        jobs[k] = {
+            name = v.name,
+            label = v.label,
+            grades = v.grades or {}
+        }
+    end
+
+    cache = jobs
+    return cache
 end

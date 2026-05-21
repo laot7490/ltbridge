@@ -100,11 +100,11 @@ function InitLocale(key, fileType)
     if not file then
         file = LoadResourceFile(__LT_RESOURCE_NAME, ('locales/en.%s'):format(extension))
         if not file then
-            printf('error', 'Locale file ^3%s^7 and fallback ^3en^7 not found or cannot be loaded. Stopping initialization.', key)
+            printf('error', 'Locale file "%s" and fallback "en" not found or cannot be loaded. Stopping initialization.', key)
             return
         end
 
-        printf('error', 'Locale file ^3%s^7 not found or cannot be loaded. Using ^3en^7 fallback.', key)
+        printf('error', 'Locale file "%s" not found or cannot be loaded. Using "en" fallback.', key)
         key = 'en'
     end
 
@@ -113,7 +113,7 @@ function InitLocale(key, fileType)
     else
         local fn, err = load(file, ('@@%s/locales/%s.lua'):format(__LT_RESOURCE_NAME, key))
         if not fn then
-            printf('error', '%s\n^1%s^7\n', corruptedMsg, key, err)
+            printf('error', '%s\n%s\n', corruptedMsg, key, err)
             return
         end
         locales = fn()
@@ -190,7 +190,7 @@ end
 --- @ltbridge export: GetCurrentKey
 function GetCurrentLocaleKey()
     if not currentLocale then
-        printf('error', 'No locale has been initialized. Please call `LT.Locale.Init` first.')
+        printf('error', 'Locale has not been initialized. Please call `LT.Locale.Init` to initialize the locale first.')
         return
     end
 
