@@ -390,7 +390,6 @@ function RootState:scheduleFlush()
 
         SendNUIMessage({
             action = self._action,
-            namespace = self._namespace,
             batch = hasPatch and self._batchPatch or {},
             deletes = hasDeletes and deletes or nil
         })
@@ -439,7 +438,6 @@ end
 function RootState:sync()
     SendNUIMessage({
         action = self._action .. "_sync",
-        namespace = self._namespace,
         state = self:snapshot()
     })
 end
@@ -455,7 +453,6 @@ function RootState:set(nextState)
 
     SendNUIMessage({
         action = self._action .. "_set",
-        namespace = self._namespace,
         state = self:snapshot()
     })
 end
@@ -637,7 +634,7 @@ end
 --- Assigning `nil` deletes the key and sends the deleted path in `deletes`.
 ---
 --- ```lua
---- local player = LT.NUI.CreateState("Player", {
+--- local player = LT.NUI.CreateState("UpdatePlayer", {
 ---     hud = {
 ---         health = 100,
 ---         armor = 100
@@ -650,7 +647,7 @@ end
 ---     localOnly = {
 ---         secret = "123"
 ---     }
---- }, { "localOnly", "inventory.items.1.secret" }, "UpdatePlayer")
+--- }, { "localOnly", "inventory.items.1.secret" })
 ---
 --- player.hud.health = 50
 --- player.hud.armor = 25
@@ -677,13 +674,15 @@ end
 --- });
 --- ```
 ---
---- @param namespace string Unique state namespace.
+--- @param action string Base update action. Example: `UpdatePlayer`.
 --- @param tbl? table Initial state table.
---- @param ignoreList? string[] Dot-path list that will never be sent to NUI (ignored).
---- @param action? string Base update action. Default is `ltbridge_state_update`.
+--- @param ignoreList? string[] Dot-path list that will never be sent to NUI (ignored). Example: `{ "hud.health", "inventory.items.1.secret" }`
 --- @return table proxy Reactive state proxy (`:sync`, `:set`, `:update`, `:raw`, `:snapshot`).
 --- @ltbridge export: CreateState
-function CreateNUIState(namespace, tbl, ignoreList, action)
+function CreateNUIState(action, tbl, ignoreList)
+    if not action or type(action) ~= "string" then
+        printf('error', 'action must be provided and must be a string')
+    end
     local ignoreTree = createIgnoreNode()
     if type(ignoreList) == "table" then
         for _, key in ipairs(ignoreList) do
@@ -700,7 +699,6 @@ function CreateNUIState(namespace, tbl, ignoreList, action)
 
     local root = setmetatable({
         _internal = internal,
-        _namespace = namespace,
         _action = action or "ltbridge_state_update",
         _ignoreTree = ignoreTree,
         _batchPatch = {},
