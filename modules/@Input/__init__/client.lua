@@ -14,7 +14,7 @@ function GetInputResource()
     return resourceName
 end
 
---- Force set input resource. 
+--- Force set input resource.
 --- Useful for config assignment.
 --- @ltbridge params:list:name
 --- @ltbridge export: SetResource
@@ -33,42 +33,148 @@ end
 -- HELPERS
 -- ════════════════════════════════════════════════════════════════════════════════════════════
 
+local function coerceBool(value)
+    if value == 'true' then return true end
+    if value == 'false' then return false end
+    return value
+end
+
+local function resolveInputs(data, isQB)
+    if not data then return nil end
+    if isQB then
+        if not data.inputs then
+            printf('warning', 'Input dialog (QB format) requires data.inputs.')
+            return nil
+        end
+        return data.inputs
+    end
+    if data.inputs then
+        return data.inputs
+    end
+    return data
+end
+
+--- Maps dialog return values by field name; keeps extra keys (e.g. qb-input checkbox option.value).
+local function mapNamedReturn(returnData, fields, coerceValues)
+    if not returnData then return nil end
+    local convertedData = {}
+    for _, field in ipairs(fields) do
+        local name = field.name
+        if name and returnData[name] ~= nil then
+            convertedData[name] = coerceValues and coerceBool(returnData[name]) or returnData[name]
+        end
+    end
+    for key, value in pairs(returnData) do
+        if convertedData[key] == nil then
+            convertedData[key] = coerceValues and coerceBool(value) or value
+        end
+    end
+    return convertedData
+end
+
+local function isSequentialArray(tbl)
+    if type(tbl) ~= 'table' or tbl[1] == nil then return false end
+    for k in pairs(tbl) do
+        if type(k) ~= 'number' then return false end
+    end
+    return true
+end
+
+--- Normalizes qb-input / ox-style returns when not using QB field names directly.
+local function convertOxReturn(returnData)
+    if not returnData then return nil end
+    if isSequentialArray(returnData) then
+        local convertedData = {}
+        for i, v in ipairs(returnData) do
+            convertedData[i] = coerceBool(v)
+        end
+        return convertedData
+    end
+    local hasStringKey = false
+    for k in pairs(returnData) do
+        if type(k) == 'string' then
+            hasStringKey = true
+            break
+        end
+    end
+    if hasStringKey then
+        local convertedData = {}
+        for key, value in pairs(returnData) do
+            convertedData[key] = coerceBool(value)
+        end
+        return convertedData
+    end
+    local convertedData = {}
+    for key, value in pairs(returnData) do
+        local index = tonumber(key)
+        convertedData[index or key] = coerceBool(value)
+    end
+    return convertedData
+end
+
+local function buildOxOptions(options)
+    local oxOptions = {}
+    for _, option in ipairs(options or {}) do
+        table.insert(oxOptions, {
+            value = option.value,
+            label = option.text or option.label,
+            checked = option.checked,
+        })
+    end
+    return oxOptions
+end
+
+local function buildQbOptions(options)
+    local qbOptions = {}
+    for _, option in ipairs(options or {}) do
+        table.insert(qbOptions, {
+            value = option.value,
+            text = option.text or option.label,
+            checked = option.checked,
+        })
+    end
+    return qbOptions
+end
+
 -- QB to OX
 local function convertTypesQBtoOX(_type)
-    if _type == "text" then
-        return "input"
-    elseif _type == "password" then
-        return "input"
-    elseif _type == "number" then
-        return "number"
-    elseif _type == "radio" then
-        return "checkbox"
-    elseif _type == "checkbox" then
-        return "checkbox"
-    elseif _type == "select" then
-        return "select"
+    if _type == 'text' then
+        return 'input'
+    elseif _type == 'password' then
+        return 'input'
+    elseif _type == 'number' then
+        return 'number'
+    elseif _type == 'radio' then
+        return 'select'
+    elseif _type == 'checkbox' then
+        return 'checkbox'
+    elseif _type == 'select' then
+        return 'select'
+    elseif _type == 'color' then
+        return 'color'
     end
+    return 'input'
 end
 
 local function convertInputQBtoOX(inputs)
     local returnData = {}
-    for i, v in pairs(inputs) do
+    for i, v in ipairs(inputs) do
+        local fieldName = v.name or tostring(i)
+        if not v.name then
+            printf('warning', 'QB input field at index ^3%d^7 is missing ^3name^7.', i)
+        end
         local input = {
             label = v.text,
-            name = i,
-            type = convertTypesQBtoOX(v.type),
+            name = fieldName,
+            type = convertTypesQBtoOX(v.type or 'text'),
             required = v.isRequired,
-            default = v.placeholder,
+            default = v.default or v.placeholder,
         }
-        if v.type == "select" then
-            input.options = {}
-            for i, v in pairs(v.options) do
-                table.insert(input.options, {value = v.value, label = v.text})
-            end
-        elseif v.type == "checkbox" then
-            for i, v in pairs(v.options) do
-                table.insert(returnData, {value = v.value, label = v.text})
-            end
+        if v.type == 'password' then
+            input.password = true
+        end
+        if v.type == 'select' or v.type == 'radio' or v.type == 'checkbox' then
+            input.options = buildOxOptions(v.options)
         end
         table.insert(returnData, input)
     end
@@ -76,57 +182,60 @@ local function convertInputQBtoOX(inputs)
 end
 
 -- OX to QB
-local function convertTypesOXtoQB(_type)
-    if _type == "input" then
-        return "text"
-    elseif _type == "number" then
-        return "number"
-    elseif _type == "checkbox" then
-        return "checkbox"
-    elseif _type == "select" then
-        return "select"
-    elseif _type == "multi-select" then
-        return "select"
-    elseif _type == "slider" then
-        return "number"
-    elseif _type == "color" then
-        return "text"
-    elseif _type == "date" then
-        return "date"
-    elseif _type == "date-range" then
-        return "date"
-    elseif _type == "time" then
-        return "time"
-    elseif _type == "textarea" then
-        return "text"
+local function convertTypesOXtoQB(_type, field)
+    if _type == 'input' then
+        if field and field.password then
+            return 'password'
+        end
+        return 'text'
+    elseif _type == 'number' then
+        return 'number'
+    elseif _type == 'checkbox' then
+        return 'checkbox'
+    elseif _type == 'select' or _type == 'multi-select' then
+        return 'select'
+    elseif _type == 'slider' then
+        return 'number'
+    elseif _type == 'color' then
+        return 'color'
+    elseif _type == 'date' or _type == 'date-range' or _type == 'time' or _type == 'textarea' then
+        return 'text'
     end
+    return 'text'
 end
 
 local function convertInputOXtoQB(inputs)
     local returnData = {}
-    for i, v in pairs(inputs) do
+    for i, v in ipairs(inputs) do
+        local fieldName = v.name or tostring(i)
+        if not v.name then
+            printf('warning', 'OX input field at index ^3%d^7 is missing ^3name^7.', i)
+        end
         local input = {
-            text = v.label,
-            name = i,
-            type = convertTypesOXtoQB(v.type),
+            text = v.label or v.text or '',
+            name = fieldName,
+            type = convertTypesOXtoQB(v.type, v),
             isRequired = v.required,
-            default = v.default or "",
+            default = v.default or '',
         }
-        if v.type == "select" then
-            input.text = ""
+        if v.type == 'select' or v.type == 'multi-select' then
+            input.options = buildQbOptions(v.options)
+        elseif v.type == 'checkbox' then
             input.options = {}
-            for k, j in pairs(v.options) do
-                table.insert(input.options, {value = j.value, text = j.label})
-            end
-        elseif v.type == "checkbox" then
-            input.text = ""
-            input.options = {}
-            if v.options then -- Checks if options varible is valid so checkboxes are bundled together (not used by ox for each checkpoint)
-                for k, j in pairs(v.options) do
-                    table.insert(input.options, {value = #returnData + #input.options + 1, text = j.label, checked = j.checked}) -- added checked option (used to show box as ticked or not)
+            if v.options then
+                for _, option in ipairs(v.options) do
+                    table.insert(input.options, {
+                        value = option.value or option.name,
+                        text = option.label or option.text,
+                        checked = option.checked,
+                    })
                 end
-            else -- If options is not valid or people pass a single checkbox then it will be a single checkbox per entry
-                table.insert(input.options, {value = #returnData + 1, text = v.label, checked = v.checked}) -- Kept value just incase it's used for other stuffs
+            else
+                table.insert(input.options, {
+                    value = fieldName,
+                    text = v.label or v.text or fieldName,
+                    checked = v.checked,
+                })
             end
         end
         table.insert(returnData, input)
@@ -140,87 +249,54 @@ end
 
 local adapters = {
     ['ox_lib'] = function(title, data, isQB, submitText)
-        local inputs = data.inputs
+        local inputs = resolveInputs(data, isQB)
+        if not inputs then return end
         if isQB then
-            local convertedData = {}
             local returnData = exports['ox_lib']:inputDialog(title, convertInputQBtoOX(inputs))
-            for i, v in pairs(inputs) do
-                for k, j in pairs(returnData or {}) do
-                    if k == v.name then
-                        convertedData[v.name] = j
-                    end
-                end
-            end
-            return convertedData
-        else
-            return exports['ox_lib']:inputDialog(title, data)
+            return mapNamedReturn(returnData, inputs, false)
         end
+        return exports['ox_lib']:inputDialog(title, inputs)
     end,
     ['lt-ui'] = function(title, data, isQB, submitText)
-        local inputs = data.inputs
+        local inputs = resolveInputs(data, isQB)
+        if not inputs then return end
         if isQB then
-            local convertedData = {}
             local returnData = exports['lt-ui']:inputDialog(title, convertInputQBtoOX(inputs))
-            for i, v in pairs(inputs) do
-                for k, j in pairs(returnData or {}) do
-                    if k == v.name then
-                        convertedData[v.name] = j
-                    end
-                end
-            end
-            return convertedData
-        else
-            return exports['lt-ui']:inputDialog(title, data)
+            return mapNamedReturn(returnData, inputs, false)
         end
+        return exports['lt-ui']:inputDialog(title, inputs)
     end,
     ['qb-input'] = function(title, data, isQB, submitText)
-        local input = data.inputs
+        local inputs = resolveInputs(data, isQB)
+        if not inputs then return end
         if not isQB then
-            input = convertInputOXtoQB(data)
+            inputs = convertInputOXtoQB(inputs)
         end
         local returnData = exports['qb-input']:ShowInput({
-            header = title,
-            submitText = submitText or "Submit",
-            inputs = input
+            header = title or data.header,
+            submitText = submitText or data.submitText or 'Submit',
+            inputs = inputs,
         })
         if not returnData then return end
-        if returnData[1] then return returnData end
-        local convertedData = {}
         if isQB then
-            for i, v in pairs(input) do
-                for k, j in pairs(returnData) do
-                    if k == v.name then
-                        convertedData[v.name] = j
-                    end
-                end
-            end
-            return convertedData
+            return mapNamedReturn(returnData, inputs, true)
         end
-
-        for i, v in pairs(returnData) do
-            local index = i and tonumber(i)
-            v = tostring(v) == "true" and true or (tostring(v) == "false" and false or v)
-            if not index then
-                table.insert(convertedData, v)
-            else
-                convertedData[index] = v
-            end
-        end
-        return convertedData
+        return convertOxReturn(returnData)
     end,
     ['lation_ui'] = function(title, data, isQB, submitText)
-        local inputs = data.inputs
+        local inputs = resolveInputs(data, isQB)
+        if not inputs then return end
         if isQB then
-            return exports.lation_ui:input({title = title, inputs = convertInputQBtoOX(inputs)})
-        else
-            return exports.lation_ui:input({title = title, options = data})
+            local returnData = exports.lation_ui:input({ title = title, inputs = convertInputQBtoOX(inputs) })
+            return mapNamedReturn(returnData, inputs, false)
         end
+        return exports.lation_ui:input({ title = title, options = inputs })
     end,
 }
 
 --- Opens a input dialog.
 --- @param header string Title of input dialog
---- @param data table Data table
+--- @param data table Data table (`{ inputs = ... }` for QB; ox field array or `{ inputs = ... }` otherwise)
 --- @param isQB? boolean If data table is sent with QB format set to true, default: false
 --- @param submitText? string Submit button text, only for `qb-input`
 --- @return table|nil

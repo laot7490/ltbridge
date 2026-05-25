@@ -45,11 +45,19 @@ function generateFullApi(targetDir) {
 
 function rebuildBundle(targetDir, config, options = {}) {
 	const { version } = require("../package.json");
+	const skipApi = options.skipApi === true;
+
 	if (config.version !== version) {
-		console.log(
-			`\x1b[36mℹ LTBridge version updated (${config.version || "unknown"} -> ${version}). Regenerating API stubs...\x1b[0m`,
-		);
-		generateFullApi(targetDir);
+		if (!skipApi) {
+			console.log(
+				`\x1b[36mℹ LTBridge version updated (${config.version || "unknown"} -> ${version}). Regenerating API stubs...\x1b[0m`,
+			);
+			generateFullApi(targetDir);
+		} else {
+			console.log(
+				`\x1b[36mℹ LTBridge version updated (${config.version || "unknown"} -> ${version}). Run 'ltbridge api' to refresh API stubs.\x1b[0m`,
+			);
+		}
 		config.version = version;
 		const configPath = path.join(targetDir, "ltbridge", "ltbridge.config.json");
 		fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
@@ -345,12 +353,18 @@ function rebuildBundle(targetDir, config, options = {}) {
 	}
 
 	const ltModulesDir = path.join(targetDir, "ltbridge");
-	const buildDir = path.join(ltModulesDir, "modules");
-	fs.ensureDirSync(buildDir);
-	fs.emptyDirSync(buildDir);
+	const writtenOutputs = new Set();
+
+	const writeOutput = (relativePath, content) => {
+		const rel = relativePath.replace(/\\/g, "/");
+		const fullPath = path.join(ltModulesDir, rel);
+		fs.ensureDirSync(path.dirname(fullPath));
+		fs.writeFileSync(fullPath, content);
+		writtenOutputs.add(rel);
+	};
 
 	const readmeContent = `=== LTBridge Auto-Generated Modules ===\nThese files were automatically generated and/or minified by LTBridge.\nRepository: https://github.com/laot7490/ltbridge\nLast Build Time: ${new Date().toLocaleString()}\nLTBridge Version: ${version}\n`;
-	fs.writeFileSync(path.join(ltModulesDir, "README.txt"), readmeContent);
+	writeOutput("README.txt", readmeContent);
 
 	const { injectManifest } = require("./manifestInjector");
 	const getBundleHeader = (type) =>
@@ -360,9 +374,8 @@ function rebuildBundle(targetDir, config, options = {}) {
 		const loaders = { shared: [], client: [], server: [] };
 
 		for (const file of individualFiles) {
-			const fullPath = path.join(buildDir, file.path);
-			fs.ensureDirSync(path.dirname(fullPath));
-			fs.writeFileSync(fullPath, getBundleHeader(file.type) + "--- @diagnostic disable\n" + file.content);
+			const relPath = "modules/" + file.path.replace(/\\/g, "/");
+			writeOutput(relPath, getBundleHeader(file.type) + "--- @diagnostic disable\n" + file.content);
 			const requirePath = file.path.replace(/\\/g, "/").replace(/^imports\//, "");
 			loaders[file.type].push(`    "${requirePath}"`);
 		}
@@ -372,9 +385,9 @@ function rebuildBundle(targetDir, config, options = {}) {
 			return `-- LTBridge Auto-Generated ${typeStr} Loader\nlocal loadSequence = {\n${items.join(",\n")}\n}\nfor _, modPathSuffix in ipairs(loadSequence) do\n    local modPath = "ltbridge/modules/imports/" .. modPathSuffix\n    local chunk = LoadResourceFile(GetCurrentResourceName(), modPath)\n    if chunk then\n        local fn, err = load(chunk, "@@" .. GetCurrentResourceName() .. "/" .. modPath)\n        if not fn then\n            print("^6[LTBridge ${version}] ^1ERROR: Syntax error in module: " .. modPath .. "\\n" .. tostring(err) .. "^7")\n        else\n            fn()\n        end\n    else\n        print("^6[LTBridge ${version}] ^1ERROR: Module file not found: " .. modPathSuffix .. "^7")\n    end\nend\n`;
 		};
 
-		if (hasShared) fs.writeFileSync(path.join(buildDir, "shared.lua"), generateLoader("Shared", loaders.shared));
-		if (hasClient) fs.writeFileSync(path.join(buildDir, "client.lua"), generateLoader("Client", loaders.client));
-		if (hasServer) fs.writeFileSync(path.join(buildDir, "server.lua"), generateLoader("Server", loaders.server));
+		if (hasShared) writeOutput("modules/shared.lua", generateLoader("Shared", loaders.shared));
+		if (hasClient) writeOutput("modules/client.lua", generateLoader("Client", loaders.client));
+		if (hasServer) writeOutput("modules/server.lua", generateLoader("Server", loaders.server));
 		injectManifest(targetDir, hasClient, hasServer, hasShared, true);
 	} else {
 		const getInitBlock = (type) =>
@@ -383,24 +396,55 @@ function rebuildBundle(targetDir, config, options = {}) {
 			(bundleRequiredTables[type].size > 0 ? `\n\n` : `\n`);
 
 		if (hasShared)
-			fs.writeFileSync(
-				path.join(buildDir, "shared.lua"),
+			writeOutput(
+				"modules/shared.lua",
 				getBundleHeader("Shared") + "--- @diagnostic disable\n" + getInitBlock("shared") + finalBundle.shared,
 			);
 		if (hasClient)
-			fs.writeFileSync(
-				path.join(buildDir, "client.lua"),
+			writeOutput(
+				"modules/client.lua",
 				getBundleHeader("Client") + "--- @diagnostic disable\n" + getInitBlock("client") + finalBundle.client,
 			);
 		if (hasServer)
-			fs.writeFileSync(
-				path.join(buildDir, "server.lua"),
+			writeOutput(
+				"modules/server.lua",
 				getBundleHeader("Server") + "--- @diagnostic disable\n" + getInitBlock("server") + finalBundle.server,
 			);
 		injectManifest(targetDir, hasClient, hasServer, hasShared, false);
 	}
 
+	pruneGeneratedOutputs(ltModulesDir, writtenOutputs);
+
 	console.log(`\x1b[32m✓\x1b[0m ${loadSequence.length} modules bundled in ${Date.now() - startTime}ms`);
+}
+
+function pruneGeneratedOutputs(ltModulesDir, writtenOutputs) {
+	const modulesDir = path.join(ltModulesDir, "modules");
+	if (fs.existsSync(modulesDir)) {
+		pruneDirectory(modulesDir, ltModulesDir, writtenOutputs);
+	}
+
+	const readmePath = path.join(ltModulesDir, "README.txt");
+	if (fs.existsSync(readmePath) && !writtenOutputs.has("README.txt")) {
+		fs.removeSync(readmePath);
+	}
+}
+
+function pruneDirectory(currentDir, ltModulesDir, writtenOutputs) {
+	for (const entry of fs.readdirSync(currentDir)) {
+		const fullPath = path.join(currentDir, entry);
+		const rel = path.relative(ltModulesDir, fullPath).replace(/\\/g, "/");
+		const stat = fs.statSync(fullPath);
+
+		if (stat.isDirectory()) {
+			pruneDirectory(fullPath, ltModulesDir, writtenOutputs);
+			if (fs.existsSync(fullPath) && fs.readdirSync(fullPath).length === 0) {
+				fs.removeSync(fullPath);
+			}
+		} else if (!writtenOutputs.has(rel)) {
+			fs.removeSync(fullPath);
+		}
+	}
 }
 
 function getIndividualPath(modName, type) {

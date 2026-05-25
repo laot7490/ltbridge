@@ -1,6 +1,61 @@
 const fs = require("fs-extra");
 const path = require("path");
 
+function findBlockEnd(content, openBraceIndex) {
+	let depth = 0;
+	let i = openBraceIndex;
+	const len = content.length;
+	let inString = false;
+	let stringChar = "";
+
+	while (i < len) {
+		const c = content[i];
+
+		if (!inString) {
+			if (c === '"' || c === "'") {
+				inString = true;
+				stringChar = c;
+				i++;
+				continue;
+			}
+			if (c === "{") depth++;
+			else if (c === "}") {
+				depth--;
+				if (depth === 0) return i;
+			}
+		} else {
+			if (c === "\\") {
+				i += 2;
+				continue;
+			}
+			if (c === stringChar) inString = false;
+		}
+		i++;
+	}
+
+	return -1;
+}
+
+function getPluralBlock(content, keywordPlural) {
+	const pluralRegex = new RegExp(`^\\s*${keywordPlural}\\s*\\{`, "m");
+	const matchPlural = content.match(pluralRegex);
+	if (!matchPlural) return null;
+
+	const blockStart = matchPlural.index;
+	const openBrace = content.indexOf("{", blockStart);
+	if (openBrace === -1) return null;
+
+	const blockEnd = findBlockEnd(content, openBrace);
+	if (blockEnd === -1) return null;
+
+	return {
+		header: matchPlural[0],
+		blockStart,
+		blockEnd,
+		blockContent: content.substring(blockStart, blockEnd + 1),
+	};
+}
+
 function injectManifest(targetDir, hasClient, hasServer, hasShared, isIndividual = false) {
 	const manifestNames = ["fxmanifest.lua", "__resource.lua"];
 	let manifestPath = null;
@@ -24,19 +79,16 @@ function injectManifest(targetDir, hasClient, hasServer, hasShared, isIndividual
 	const injectBlock = (type, file) => {
 		const keywordMatch = type.replace("_scripts", "_script").replace("files", "file");
 		const keywordPlural = type;
+		const entry = `'ltbridge/modules/${file}'`;
 
-		const pluralRegex = new RegExp(`^\\s*${keywordPlural}\\s*\\{`, "m");
-		const matchPlural = content.match(pluralRegex);
-
-		if (matchPlural) {
-			const blockStart = matchPlural.index;
-			const blockEnd = content.indexOf("}", blockStart);
-			const blockContent = blockEnd !== -1 ? content.substring(blockStart, blockEnd) : content.substring(blockStart);
-			if (blockContent.includes(`'ltbridge/modules/${file}'`) || blockContent.includes(`"ltbridge/modules/${file}"`)) {
-				return;
-			}
-			const replacement = `${matchPlural[0]}\n    'ltbridge/modules/${file}',`;
-			content = content.replace(matchPlural[0], replacement);
+		const block = getPluralBlock(content, keywordPlural);
+		if (block) {
+			if (block.blockContent.includes(entry)) return;
+			const openBrace = content.indexOf("{", block.blockStart);
+			content =
+				content.substring(0, openBrace + 1) +
+				`\n    ${entry},` +
+				content.substring(openBrace + 1);
 			injected = true;
 			return;
 		}
@@ -45,20 +97,15 @@ function injectManifest(targetDir, hasClient, hasServer, hasShared, isIndividual
 		const matchSingular = content.match(singularRegex);
 
 		if (matchSingular) {
-			if (
-				matchSingular[0].includes(`'ltbridge/modules/${file}'`) ||
-				matchSingular[0].includes(`"ltbridge/modules/${file}"`)
-			) {
-				return;
-			}
+			if (matchSingular[0].includes(entry)) return;
 			const originalFileString = matchSingular[1];
-			const replacement = `${keywordPlural} {\n    'ltbridge/modules/${file}',\n    ${originalFileString}\n}`;
+			const replacement = `${keywordPlural} {\n    ${entry},\n    ${originalFileString}\n}`;
 			content = content.replace(matchSingular[0], replacement);
 			injected = true;
 			return;
 		}
 
-		content += `\n\n${keywordPlural} {\n    'ltbridge/modules/${file}'\n}`;
+		content += `\n\n${keywordPlural} {\n    ${entry}\n}`;
 		injected = true;
 	};
 
@@ -87,18 +134,21 @@ function injectManifest(targetDir, hasClient, hasServer, hasShared, isIndividual
 	const injectEscrow = () => {
 		if (content.includes(`'ltbridge/**/*.lua'`) || content.includes(`"ltbridge/**/*.lua"`)) return;
 
-		const pluralRegex = new RegExp(`^\\s*escrow_ignore\\s*\\{`, "m");
-		const matchPlural = content.match(pluralRegex);
-		if (matchPlural) {
-			content = content.replace(matchPlural[0], `${matchPlural[0]}\n    'ltbridge/**/*.lua',`);
+		const block = getPluralBlock(content, "escrow_ignore");
+		if (block) {
+			const openBrace = content.indexOf("{", block.blockStart);
+			content =
+				content.substring(0, openBrace + 1) +
+				`\n    'ltbridge/**/*.lua',` +
+				content.substring(openBrace + 1);
 			injected = true;
 			return;
 		}
 
-		const singularRegex = new RegExp(`^\\s*escrow_ignore\\s+(['"].+?['"])`, "m");
+		const singularRegex = /^(\s*)escrow_ignore\s+(['"].+?['"])/m;
 		const matchSingular = content.match(singularRegex);
 		if (matchSingular) {
-			const originalFileString = matchSingular[1];
+			const originalFileString = matchSingular[2];
 			const replacement = `escrow_ignore {\n    'ltbridge/**/*.lua',\n    ${originalFileString}\n}`;
 			content = content.replace(matchSingular[0], replacement);
 			injected = true;
@@ -125,4 +175,5 @@ function injectManifest(targetDir, hasClient, hasServer, hasShared, isIndividual
 
 module.exports = {
 	injectManifest,
+	findBlockEnd,
 };

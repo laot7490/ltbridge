@@ -14,6 +14,7 @@ program
   .description('Initialize LTBridge in the current directory and generate Master API stubs')
   .option('--no-minify', 'Disable minification')
   .option('--debug', 'Enable debug mode')
+  .option('--no-build', 'Skip initial bundle after init (api stubs still generated)')
   .action(async (options) => {
     const cwd = process.cwd();
     await initProject(cwd, options);
@@ -80,13 +81,6 @@ program
   .description('Prune unused modules from your project bundles')
   .action(() => {
     pruneModules(process.cwd());
-  });
-
-program
-  .command('api')
-  .description('Standalone: Regenerate the Comprehensive Master API stubs')
-  .action(() => {
-    generateFullApi(process.cwd());
   });
 
 if (process.argv.length <= 2) {

@@ -1,6 +1,5 @@
-const fs = require("fs");
-const path = require("path");
 const { getModuleRegistry, getModuleData } = require("./registry");
+const { pickExportModule } = require("./resolveExport");
 
 function resolveDependencies(moduleNames, exportMap) {
 	const registry = getModuleRegistry();
@@ -27,13 +26,10 @@ function resolveDependencies(moduleNames, exportMap) {
 			}
 		});
 
-		const regex = /(?:^|[^a-zA-Z0-9_.:"'\]])(LT\.[a-zA-Z0-9_.]+|[a-zA-Z0-9_]+)/g;
+		const regex = /(?:^|[^a-zA-Z0-9_.:"'\]])(LT\.[a-zA-Z0-9_.]+)/g;
 		let match;
 		while ((match = regex.exec(combinedCode)) !== null) {
-			let fullPath = match[1];
-			if (fullPath.startsWith("LT.")) {
-				fullPath = fullPath.substring(3);
-			}
+			let fullPath = match[1].substring(3);
 
 			const parts = fullPath.split(".");
 			let current = "";
@@ -52,28 +48,8 @@ function resolveDependencies(moduleNames, exportMap) {
 				}
 
 				if (exportMap && exportMap[current]) {
-					const candidates = exportMap[current];
-					if (candidates.length === 1) {
-						if (candidates[0] !== modName) dependencies.add(candidates[0]);
-					} else if (current.includes(".")) {
-						const ns = current.split(".")[0].toLowerCase();
-						const bestMatch = candidates.find((c) => c.toLowerCase().includes(ns));
-						if (bestMatch && bestMatch !== modName) dependencies.add(bestMatch);
-					} else {
-						const globalMatch = candidates.find((c) => {
-							const mData = getModuleData(c);
-							if (!mData) return false;
-							let hasGlobal = false;
-							["shared", "client", "server"].forEach((ctx) => {
-								if (mData[ctx] && mData[ctx].stubs) {
-									if (mData[ctx].stubs.some((s) => s.metadata && s.metadata.global)) hasGlobal = true;
-								}
-							});
-							return hasGlobal;
-						});
-						const finalMatch = globalMatch || candidates[0];
-						if (finalMatch !== modName) dependencies.add(finalMatch);
-					}
+					const finalMatch = pickExportModule(current, exportMap[current]);
+					if (finalMatch && finalMatch !== modName) dependencies.add(finalMatch);
 				}
 			}
 		}

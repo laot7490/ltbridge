@@ -59,7 +59,7 @@ When you run `init`, LTBridge creates a simple JSON config.
 
 | Setting | Default | Description |
 | --- | --- | --- |
-| `buildAsBundle`| `true` | Combine everything into 3 clean files (`shared`, `client`, `server`). Set to `false` if you want a separate file for each module. |
+| `buildAsBundle`| `false` (non-interactive `init`) / prompt on interactive `init` | Combine everything into 3 clean files (`shared`, `client`, `server`). Set to `true` for bundle mode. |
 | `debug` | `false` | Turn this on if you want to see internal debug prints from the modules. |
 | `minify` | `true` | Enables code optimization and global variable randomization for maximum performance. |
 | `modules` | `[]` | List of installed modules. The tool manages this automatically! |
@@ -69,7 +69,8 @@ When you run `init`, LTBridge creates a simple JSON config.
 | Command | Alias | Description |
 | --- | --- | --- |
 | `ltbridge` | - | **Interactive Menu**: Manage your modules visually. |
-| `ltbridge init` | - | Set up LTBridge in a new project. |
+| `ltbridge init` | - | Set up LTBridge in a new project (runs an initial build unless `--no-build`). |
+| `ltbridge api` | - | Regenerate `ltbridge/api.lua` IDE stubs only. |
 | `ltbridge build` | `sync` | Build the project manually (use `-w` for live auto-build). |
 | `ltbridge add <name>` | - | Add a specific module manually (e.g., `Target/*`). |
 | `ltbridge remove <name>`| - | Remove a module. |

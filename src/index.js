@@ -4,6 +4,8 @@ const { version } = require("../package.json");
 const { rebuildBundle, generateFullApi, getModuleExportMap } = require("./bundler");
 const { resolveDependencies } = require("./moduleResolver");
 const { getModuleRegistry, getModuleData } = require("./registry");
+const { pickExportModule } = require("./resolveExport");
+const { getVisibleModules, buildModuleGroups, getDependencySets, getFilteredSortedMods } = require("./moduleListUi");
 const prompts = require("prompts");
 
 const CONFIG_FILE = path.join("ltbridge", "ltbridge.config.json");
@@ -88,6 +90,10 @@ async function initProject(targetDir, options = {}) {
 	console.log(`\x1b[90mℹ Debug: ${doDebug ? "enabled" : "disabled"}\x1b[0m\n`);
 
 	generateFullApi(targetDir);
+
+	if (options.noBuild !== true) {
+		rebuildBundle(targetDir, initialConfig);
+	}
 }
 
 function getConfig(targetDir) {
@@ -218,7 +224,15 @@ function addModule(targetDir, moduleName) {
 		saveConfig(targetDir, config);
 		rebuildBundle(targetDir, config, { skipApi: true });
 	} else if (moduleName.endsWith("*")) {
+		if (internalBlocked) {
+			console.log(
+				`\x1b[31m✖ No addable modules matched '${moduleName}' (internal-only modules are auto-managed).\x1b[0m`,
+			);
+			process.exit(1);
+		}
 		console.log(`\x1b[90mℹ All matching modules are already added.\x1b[0m`);
+	} else if (internalBlocked) {
+		process.exit(1);
 	}
 }
 
@@ -308,27 +322,9 @@ function resolveCallsToModules(foundCalls) {
 			continue;
 		}
 
-		// Export map lookup
 		if (exportMap[call]) {
-			const candidates = exportMap[call];
-			if (candidates.length === 1) {
-				validRequestedModules.add(candidates[0]);
-			} else if (call.includes(".")) {
-				const ns = call.split(".")[0].toLowerCase();
-				const bestMatch = candidates.find((c) => c.toLowerCase().includes(ns));
-				if (bestMatch) validRequestedModules.add(bestMatch);
-			} else {
-				// Global fallback: Prefer modules with @ltbridge global
-				const fs = require("fs");
-				const path = require("path");
-				const globalMatch = candidates.find((c) => {
-					const modDir = registry[c];
-					if (!modDir) return false;
-					const serverPath = path.join(modDir, "server.lua");
-					return fs.existsSync(serverPath) && fs.readFileSync(serverPath, "utf8").includes("@ltbridge global");
-				});
-				validRequestedModules.add(globalMatch || candidates[0]);
-			}
+			const match = pickExportModule(call, exportMap[call]);
+			if (match) validRequestedModules.add(match);
 		}
 	}
 	return validRequestedModules;
@@ -364,11 +360,36 @@ function pruneModules(targetDir) {
 }
 
 let watchTimeout = null;
+let watchIsSyncing = false;
+let watchPendingSync = false;
+
+function isWatcherIgnoredPath(targetDir, filePath) {
+	if (!filePath) return true;
+
+	const rootDir = path.resolve(targetDir);
+	const absPath = path.resolve(path.isAbsolute(filePath) ? filePath : path.join(rootDir, filePath));
+	const rel = path.relative(rootDir, absPath).replace(/\\/g, "/");
+
+	if (rel === "" || rel === ".") return false;
+	if (rel.startsWith("..")) return true;
+	if (rel.includes("node_modules")) return true;
+	if (rel === "ltbridge/modules" || rel.startsWith("ltbridge/modules/")) return true;
+	if (rel === "ltbridge/api.lua") return true;
+	if (rel === "fxmanifest.lua" || rel === "__resource.lua") return true;
+	if (rel.endsWith("ltbridge.config.json")) return false;
+
+	let stat;
+	try {
+		stat = fs.statSync(absPath);
+	} catch {
+		return true;
+	}
+
+	if (stat.isDirectory()) return false;
+	return !rel.endsWith(".lua");
+}
 
 function watchProject(targetDir, options = {}) {
-	const registry = getModuleRegistry();
-	const availableModules = Object.keys(registry);
-
 	let lastConfigState = "";
 	const configPath = path.join(targetDir, CONFIG_FILE);
 	if (fs.existsSync(configPath)) {
@@ -376,6 +397,11 @@ function watchProject(targetDir, options = {}) {
 	}
 
 	function syncModules(forceRebuild = false) {
+		if (watchIsSyncing) {
+			watchPendingSync = true;
+			return;
+		}
+
 		const currentConfig = getConfig(targetDir);
 		const foundModules = scanLuaCalls(targetDir);
 		const validRequestedModules = resolveCallsToModules(foundModules);
@@ -383,25 +409,24 @@ function watchProject(targetDir, options = {}) {
 		let changed = false;
 		const newConfigModules = new Set(currentConfig.modules);
 
-		const addedMods = [];
 		for (const mod of validRequestedModules) {
 			if (!newConfigModules.has(mod)) {
 				newConfigModules.add(mod);
-				addedMods.push(mod);
 				changed = true;
 			}
 		}
 
-		const prunedMods = [];
 		for (const mod of currentConfig.modules) {
 			if (!validRequestedModules.has(mod)) {
 				newConfigModules.delete(mod);
-				prunedMods.push(mod);
 				changed = true;
 			}
 		}
 
-		if (changed || forceRebuild) {
+		if (!changed && !forceRebuild) return;
+
+		watchIsSyncing = true;
+		try {
 			if (changed) {
 				currentConfig.modules = Array.from(newConfigModules);
 			}
@@ -409,7 +434,24 @@ function watchProject(targetDir, options = {}) {
 			if (changed) saveConfig(targetDir, currentConfig);
 
 			rebuildBundle(targetDir, currentConfig, { skipApi: true, ...options });
+		} finally {
+			watchIsSyncing = false;
+			if (watchPendingSync) {
+				watchPendingSync = false;
+				scheduleWatchSync();
+			}
 		}
+	}
+
+	function scheduleWatchSync() {
+		if (watchTimeout) clearTimeout(watchTimeout);
+		watchTimeout = setTimeout(() => {
+			try {
+				syncModules(true);
+			} catch (e) {
+				console.log(`\x1b[31m✖ Watcher error: ${e.message}\x1b[0m`);
+			}
+		}, 400);
 	}
 
 	console.log(`\n\x1b[36m⚡ ltbridge v${version}\x1b[0m \x1b[32mwatching for changes...\x1b[0m`);
@@ -417,61 +459,48 @@ function watchProject(targetDir, options = {}) {
 
 	const chokidar = require("chokidar");
 	const watcher = chokidar.watch(targetDir, {
-		ignored: [
-			/(^|[\/\\])\../, // ignore dotfiles
-			/node_modules/,
-			/ltbridge[\/\\]modules[\/\\]imports/, // ignore bundled output
-			/ltbridge[\/\\]api\.lua/, // ignore api output
-			/ltbridge[\/\\]shared\.lua/,
-			/ltbridge[\/\\]client\.lua/,
-			/ltbridge[\/\\]server\.lua/,
-		],
+		ignored: (filePath) => isWatcherIgnoredPath(targetDir, filePath),
 		persistent: true,
 		ignoreInitial: true,
+		awaitWriteFinish: {
+			stabilityThreshold: 150,
+			pollInterval: 50,
+		},
+	});
+
+	watcher.on("ready", () => {
+		console.log(`\x1b[90mℹ Watching Lua files in ${path.resolve(targetDir)} (Ctrl+C to stop)\x1b[0m\n`);
+	});
+
+	watcher.on("error", (err) => {
+		console.log(`\x1b[31m✖ Watcher error: ${err.message}\x1b[0m`);
 	});
 
 	watcher.on("all", (event, filename) => {
-		if (!filename) return;
-		const normPath = filename.replace(/\\/g, "/");
+		if (watchIsSyncing) return;
+		if (!filename || isWatcherIgnoredPath(targetDir, filename)) return;
+		if (event !== "change" && event !== "add") return;
 
-		if (normPath.endsWith("ltbridge/ltbridge.config.json") || normPath.endsWith("ltbridge.config.json")) {
+		const absPath = path.isAbsolute(filename) ? filename : path.join(targetDir, filename);
+		const rel = path.relative(targetDir, absPath).replace(/\\/g, "/");
+		const isConfig = rel.endsWith("ltbridge.config.json") || rel === path.basename(CONFIG_FILE).replace(/\\/g, "/");
+
+		if (isConfig) {
 			try {
 				const currentStr = fs.readFileSync(configPath, "utf-8");
 				if (currentStr === lastConfigState) return;
-				lastConfigState = currentStr;
-				if (watchTimeout) clearTimeout(watchTimeout);
-				watchTimeout = setTimeout(() => {
-					syncModules(true);
-				}, 300);
-				return;
 			} catch (e) {
 				return;
 			}
 		}
 
-		if (normPath.includes("ltbridge/") && !normPath.endsWith("ltbridge.config.json")) {
-			return;
-		}
-
-		if (watchTimeout) clearTimeout(watchTimeout);
-		watchTimeout = setTimeout(() => {
-			try {
-				syncModules();
-			} catch (e) {
-				console.log(`\x1b[31m✖ Watcher error: ${e.message}\x1b[0m`);
-			}
-		}, 300);
+		scheduleWatchSync();
 	});
 }
 
 function listModules(targetDir) {
 	const registry = getModuleRegistry();
-	const allModules = Object.keys(registry).filter((m) => {
-		if (m === "__init__") return false;
-		const modData = getModuleData(m);
-		if (modData && modData.meta && modData.meta.internal === true) return false;
-		return true;
-	});
+	const allModules = getVisibleModules();
 
 	let currentConfig = null;
 	const configPath = path.join(targetDir, CONFIG_FILE);
@@ -482,19 +511,7 @@ function listModules(targetDir) {
 	}
 
 	const installed = currentConfig ? new Set(currentConfig.modules) : new Set();
-	const depsSet = new Set();
-	const dependentOf = {};
-
-	if (currentConfig && currentConfig.modules) {
-		const { graph } = resolveDependencies(currentConfig.modules, getModuleExportMap());
-		for (const [parentModule, deps] of Object.entries(graph)) {
-			for (const d of deps) {
-				depsSet.add(d);
-				if (!dependentOf[d]) dependentOf[d] = [];
-				if (!dependentOf[d].includes(parentModule)) dependentOf[d].push(parentModule);
-			}
-		}
-	}
+	const depsSet = getDependencySets(currentConfig ? currentConfig.modules : []);
 
 	const allModulesSet = new Set(allModules);
 	const visibleInstalled = new Set([...installed].filter((m) => allModulesSet.has(m)));
@@ -511,36 +528,12 @@ function listModules(targetDir) {
 		return;
 	}
 
-	const groups = {};
-	for (const mod of allModules) {
-		const p = registry[mod];
-		let groupTokens = [];
-		if (p) {
-			const parts = p.split("/");
-			for (let i = 0; i < parts.length - 1; i++) {
-				let token = parts[i];
-				if (token.startsWith("@") || token.startsWith("#")) {
-					token = token.substring(1);
-				}
-				groupTokens.push(token);
-			}
-		}
-
-		let group = groupTokens.length > 0 ? groupTokens.join(" / ") : "Uncategorized";
-		let name = mod.split("/").pop();
-
-		if (!groups[group]) groups[group] = [];
-		groups[group].push({ mod, name });
-	}
+	const groups = buildModuleGroups(allModules, registry);
 
 	for (const group of Object.keys(groups).sort()) {
 		console.log(`\n  \x1b[1m\x1b[35m📁 ${group}\x1b[0m`);
 
-		const modsInGroup = groups[group];
-		const lastPart = group.split(" / ").pop();
-		const initModName = "@" + lastPart;
-		const filteredMods = modsInGroup.length > 1 ? modsInGroup.filter((m) => m.mod !== initModName) : modsInGroup;
-		const sortedMods = filteredMods.sort((a, b) => a.name.localeCompare(b.name));
+		const sortedMods = getFilteredSortedMods(groups[group], group);
 
 		for (const { mod, name } of sortedMods) {
 			const isInstalled = installed.has(mod);
@@ -573,12 +566,7 @@ function listModules(targetDir) {
 
 async function interactiveSelect(targetDir) {
 	const registry = getModuleRegistry();
-	const allModules = Object.keys(registry).filter((m) => {
-		if (m === "__init__") return false;
-		const modData = getModuleData(m);
-		if (modData && modData.meta && modData.meta.internal === true) return false;
-		return true;
-	});
+	const allModules = getVisibleModules();
 
 	let currentConfig = null;
 	const configPath = path.join(targetDir, CONFIG_FILE);
@@ -594,39 +582,8 @@ async function interactiveSelect(targetDir) {
 	}
 
 	const installed = new Set(currentConfig.modules || []);
-	const { graph } = resolveDependencies(currentConfig.modules || [], getModuleExportMap());
-	const depsSet = new Set();
-	const dependentOf = {};
-
-	for (const [parentModule, deps] of Object.entries(graph)) {
-		for (const d of deps) {
-			depsSet.add(d);
-			if (!dependentOf[d]) dependentOf[d] = [];
-			if (!dependentOf[d].includes(parentModule)) dependentOf[d].push(parentModule);
-		}
-	}
-
-	const groups = {};
-	for (const mod of allModules) {
-		const p = registry[mod];
-		let groupTokens = [];
-		if (p) {
-			const parts = p.split("/");
-			for (let i = 0; i < parts.length - 1; i++) {
-				let token = parts[i];
-				if (token.startsWith("@") || token.startsWith("#")) {
-					token = token.substring(1);
-				}
-				groupTokens.push(token);
-			}
-		}
-
-		let group = groupTokens.length > 0 ? groupTokens.join(" / ") : "Uncategorized";
-		let name = mod.split("/").pop();
-
-		if (!groups[group]) groups[group] = [];
-		groups[group].push({ mod, name });
-	}
+	const depsSet = getDependencySets(currentConfig.modules || []);
+	const groups = buildModuleGroups(allModules, registry);
 
 	const choices = [];
 	for (const group of Object.keys(groups).sort()) {
@@ -636,11 +593,7 @@ async function interactiveSelect(targetDir) {
 			disabled: true,
 		});
 
-		const modsInGroup = groups[group];
-		const lastPart = group.split(" / ").pop();
-		const initModName = "@" + lastPart;
-		const filteredMods = modsInGroup.length > 1 ? modsInGroup.filter((m) => m.mod !== initModName) : modsInGroup;
-		const sortedMods = filteredMods.sort((a, b) => a.name.localeCompare(b.name));
+		const sortedMods = getFilteredSortedMods(groups[group], group);
 
 		for (const { mod, name } of sortedMods) {
 			const isInstalled = installed.has(mod);
