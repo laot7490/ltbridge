@@ -1,6 +1,5 @@
 local GetGamePool = GetGamePool
 local GetEntityCoords = GetEntityCoords
-local PlayerPedId = PlayerPedId
 local IsPedAPlayer = IsPedAPlayer
 local PlayerPedId = PlayerPedId
 

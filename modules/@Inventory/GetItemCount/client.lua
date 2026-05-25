@@ -3,8 +3,8 @@ local function frameworkSearch(item, metadata)
         if metadata then
             printf('warning', 'This framework ^1(ESX)^7 does not support item metadata, please ensure you are using a supported inventory system or that you have the correct start order.')
         end
-        local item = ESX.SearchInventory(item)
-        return item.count
+        local result = ESX.SearchInventory(item)
+        return result.count
     elseif QBX or QBCore then
         local inv = GetPlayerData().items
         local count = 0

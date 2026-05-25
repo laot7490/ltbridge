@@ -6,7 +6,9 @@ function IsFrameworkAdmin(source)
         local xPlayer = GetPlayer(source)
         if not xPlayer then return false end
         local group = xPlayer.getGroup()
-        if group == 'admin' or group == 'superadmin' then return true end
+        if group == 'admin' or group == 'superadmin' or group == 'god' then 
+            return true 
+        end
         return false
     elseif QBCore then
         local isAdmin = QBCore.Functions.HasPermission(source, 'admin')

@@ -143,7 +143,7 @@ local adapters = {
         local inputs = data.inputs
         if isQB then
             local convertedData = {}
-            local returnData = lib.inputDialog(title, convertInputQBtoOX(inputs))
+            local returnData = exports['ox_lib']:inputDialog(title, convertInputQBtoOX(inputs))
             for i, v in pairs(inputs) do
                 for k, j in pairs(returnData or {}) do
                     if k == v.name then
@@ -153,7 +153,7 @@ local adapters = {
             end
             return convertedData
         else
-            return lib.inputDialog(title, data)
+            return exports['ox_lib']:inputDialog(title, data)
         end
     end,
     ['lt-ui'] = function(title, data, isQB, submitText)
@@ -229,6 +229,6 @@ function OpenInput(header, data, isQB, submitText)
     local resource = GetInputResource()
     if not resource then return end
     local adapter = adapters[resource]
-    if not adapter then return end
+    if not adapter then printf('error', 'Input resource not found. This function will return nil.') return end
     return adapter(header, data, isQB, submitText)
 end

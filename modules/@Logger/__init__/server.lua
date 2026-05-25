@@ -12,8 +12,8 @@ local settings = {
 }
 
 -- Waiting logs to write
-local LOGGER_TXT_BUFFER = {}
-local LOGGER_DISCORD_BUFFER = {}
+local txtBuffer = {}
+local discordBuffer = {}
 
 --- Initialize logger.
 --- **NOTE:** If using `txt` type, you need to create the folder manually `logs` (by default) in your resource folder.
@@ -62,23 +62,23 @@ function InitLogger(logType, data)
             Wait(settings.interval)
             
             if settings.type == 'txt' then
-                if #LOGGER_TXT_BUFFER > 0 then
+                if #txtBuffer > 0 then
                     local date = os.date('%Y-%m-%d')
                     local path = settings.folder .. '/' .. date .. '.txt'
                     local existing = LoadResourceFile(__LT_RESOURCE_NAME, path) or ""
-                    local newData = existing .. table.concat(LOGGER_TXT_BUFFER)
+                    local newData = existing .. table.concat(txtBuffer)
                     SaveResourceFile(__LT_RESOURCE_NAME, path, newData, -1)
 
-                    LOGGER_TXT_BUFFER = {}
+                    txtBuffer = {}
                 end
             end
 
             if settings.type == 'discord' then
-                if #LOGGER_DISCORD_BUFFER > 0 then
+                if #discordBuffer > 0 then
                     local embeds = {}
                     local toRemove = {}
 
-                    for i, log in ipairs(LOGGER_DISCORD_BUFFER) do
+                    for i, log in ipairs(discordBuffer) do
                         if #embeds < 10 then
                             table.insert(embeds, {
                                 color = log.color,
@@ -102,7 +102,7 @@ function InitLogger(logType, data)
                         end
                     end
                     for i = #toRemove, 1, -1 do
-                        table.remove(LOGGER_DISCORD_BUFFER, toRemove[i])
+                        table.remove(discordBuffer, toRemove[i])
                     end
 
                     PerformHttpRequest(settings.webhook, function(status, text, headers) 
@@ -151,7 +151,7 @@ local adapters = {
             log = string_format(msg, date, message)
         end
 
-        insert(LOGGER_TXT_BUFFER, log)
+        insert(txtBuffer, log)
     end,
     ['discord'] = function(message, status)
         local timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ")
@@ -161,7 +161,7 @@ local adapters = {
             warn = 16776960,
             error = 15158332,
         }
-        insert(LOGGER_DISCORD_BUFFER, {
+        insert(discordBuffer, {
             color = colors[status] or 3447003,
             message = message,
             timestamp = timestamp

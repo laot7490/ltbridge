@@ -4,7 +4,7 @@
 --- @param message string Content of mail
 --- @return boolean
 --- @ltbridge export: SendMail
-function SendMail(mail, title, message)
+function SendMailClient(mail, title, message)
     TriggerServerEvent(__LT_RESOURCE_NAME..':server:@Phone:Send', mail, title, message)
     return true
 end

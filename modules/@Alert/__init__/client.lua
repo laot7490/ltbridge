@@ -63,6 +63,6 @@ local adapters = {
 function SendAlert(data)
     if not resourceName then return end
     local adapter = adapters[resourceName]
-    if not adapter then return end
+    if not adapter then printf('error', 'Alert resource not found. This function will return nil.') return end
     return adapter(data)
 end

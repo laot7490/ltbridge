@@ -1,5 +1,6 @@
 local resourceName = nil
 local export = {}
+local menus = {}
 
 local list = {
     ['ox_lib'] = {},
@@ -90,7 +91,7 @@ local function convertOXtoQB(id, menu)
 
         if v.onSelect then
             button.params = {
-                event = "community_bridge:client:MenuCallback",
+                event = __LT_RESOURCE_NAME..":client:@Menu:Callback",
                 args = {id = id, selected = i, args = v.args, onSelect = v.onSelect},
             }
         else
@@ -163,7 +164,6 @@ local function convertOXtoLation(data)
         canClose = data.canClose ~= false,
         options = {}
     }
-    -- Handle icon colors: remove for image icons, convert strings to hex for others
     for k, v in pairs(data.options) do
         if v.iconColor then
             if v.icon and runCheckForImageIcon(v.icon) then
@@ -271,7 +271,19 @@ function OpenMenu(id, data, isQB)
     local resource = GetMenuResource()
     if not resource then return end
     local adapter = adapters[resource]
-    if not adapter then return end
+    if not adapter then printf('error', 'Menu resource not found. This function will return nil.') return end
     data.id = id
-    return adapter(id, data, isQB)
+    menus[id] = adapter(id, data, isQB)
+    return menus[id]
 end
+
+--- Event to handle callback from menu selection.
+--- @param _args table The arguments passed to the callback.
+--- @return nil
+RegisterNetEvent(__LT_RESOURCE_NAME..":client:@Menu:Callback", function(_args)
+    local id = _args.id
+    local onSelect = _args.onSelect
+    local args = _args.args
+    menus[id] = nil
+    onSelect(args)
+end)

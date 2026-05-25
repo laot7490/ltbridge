@@ -34,7 +34,8 @@ local adapters = {
         return getQBItemCount(source, item, metadata)
     end,
     ['tgiann-inventory'] = function(source, item, metadata)
-        return Inventory:GetItemByName(source, item, metadata).amount
+        local result = Inventory:GetItemByName(source, item, metadata)
+        return result and result.amount or 0
     end,
     ['origen_inventory'] = function(source, item, metadata)
         return Inventory:getItemCount(source, item, metadata, false)

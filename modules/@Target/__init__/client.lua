@@ -9,6 +9,7 @@ local function detectTarget()
     elseif GetResourceState('qb-target') == 'started' then
         LT_TARGET_NAME = 'qb-target'
     end
+    if not LT_TARGET_NAME then return printf('error', 'No target resource found. Please ensure you have either ox_target or qb-target loaded.') end
     Target = exports[LT_TARGET_NAME]
 end
 

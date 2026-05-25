@@ -205,7 +205,7 @@ local adapters = {
         end
 
         local style = options.style or 'bar'
-        local success = style == 'circle' and exports.ox_lib:progressCircle(options) or exports.ox_lib:progressBar(options)
+        local success = style == 'circle' and exports['lt-ui']:progressCircle(options) or exports['lt-ui']:progressBar(options)
 
         if cb then cb(success) end
         return success

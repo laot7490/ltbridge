@@ -65,7 +65,8 @@ local adapters = {
 --- @param title string Mail title
 --- @param message string Content of mail
 --- @return boolean
-function SendMail(source, mail, title, message)
+--- @ltbridge export: SendMail
+function SendMailServer(source, mail, title, message)
     if not source then return false end
     local adapter = adapters[GetPhoneResource()]
     return adapter(source, mail, title, message) or false
@@ -73,5 +74,5 @@ end
 
 RegisterNetEvent(__LT_RESOURCE_NAME..':server:@Phone:Send', function(mail, title, message)
     local src = source
-    SendMail(src, mail, title, message)
+    SendMailServer(src, mail, title, message)
 end)

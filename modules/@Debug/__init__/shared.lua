@@ -48,6 +48,7 @@ local function format(message, ...)
 end
 
 --- Set debug mode.
+--- 
 --- **0**: `Disabled` (Not Recommended)
 --- 
 --- **1**: `Errors` (Default)
