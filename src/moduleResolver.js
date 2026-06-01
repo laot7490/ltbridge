@@ -26,11 +26,7 @@ function resolveDependencies(moduleNames, exportMap) {
 			}
 		});
 
-		const regex = /(?:^|[^a-zA-Z0-9_.:"'\]])(LT\.[a-zA-Z0-9_.]+)/g;
-		let match;
-		while ((match = regex.exec(combinedCode)) !== null) {
-			let fullPath = match[1].substring(3);
-
+		function addCallDependencies(fullPath) {
 			const parts = fullPath.split(".");
 			let current = "";
 
@@ -51,6 +47,21 @@ function resolveDependencies(moduleNames, exportMap) {
 					const finalMatch = pickExportModule(current, exportMap[current]);
 					if (finalMatch && finalMatch !== modName) dependencies.add(finalMatch);
 				}
+			}
+		}
+
+		const ltRegex = /(?:^|[^a-zA-Z0-9_.:"'\]])(LT\.[a-zA-Z0-9_.]+)/g;
+		const bareRegex = /(?:^|[^a-zA-Z0-9_.:"'\]])([A-Z][a-zA-Z0-9_]*)/g;
+		let match;
+
+		while ((match = ltRegex.exec(combinedCode)) !== null) {
+			addCallDependencies(match[1].substring(3));
+		}
+
+		while ((match = bareRegex.exec(combinedCode)) !== null) {
+			const bareName = match[1];
+			if (exportMap && exportMap[bareName]) {
+				addCallDependencies(bareName);
 			}
 		}
 
