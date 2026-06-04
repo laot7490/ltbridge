@@ -15,16 +15,13 @@ local SendNUIMessage = SendNUIMessage
 --- });
 --- ```
 --- @param action string Action name
---- @param data? any Optional data payload
+--- @param data? table Optional data payload
 --- @ltbridge export: Message
 function MessageNUI(action, data)
-    if not action then return printf('error', 'Action is required.') end
-    local msg = {}
-    if type(data) == "table" then
-        for k, v in pairs(data) do
-            msg[k] = v
-        end
-    end
-    msg.action = action
-    SendNUIMessage(msg)
+    if action == nil then return printf('error', 'action is required.') end
+    if data ~= nil and type(data) ~= 'table' then return printf('error', 'data must be a table, got %s instead.', type(data)) end
+    SendNUIMessage({
+        action = action,
+        data = data or nil
+    })
 end

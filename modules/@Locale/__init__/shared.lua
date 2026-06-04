@@ -67,7 +67,7 @@ end
 --- **LUA**:
 --- ```lua
 --- LT.Locale.Init('en', 'lua') -- Setup a LUA locale.
---- 
+---
 --- -- locales/en.lua
 --- return {
 ---     client = {
@@ -148,7 +148,7 @@ end
 --- ```lua
 --- -- Simplify the function.
 --- local _t = LT.Locale.Get
---- 
+---
 --- _t('client.hello') -> Hello.
 --- _t('client.hello_name', 'John') -> Hello, John.
 --- ```

@@ -4,7 +4,7 @@
 --- ```lua
 --- LT.NUI.Focus(true, true) -- Focus + Mouse
 --- LT.NUI.Focus(false)      -- Close All
---- 
+---
 --- AddEventHandler(GetCurrentResourceName() .. ':client:@NUI:FocusChanged', function(status, cursor)
 ---     print('NUI Focus Changed:', status, cursor)
 --- end)
@@ -15,5 +15,5 @@
 --- @ltbridge export: Focus
 function NUIFocus(status, cursor)
     SetNuiFocus(status, (cursor == nil and status) or (type(cursor) == "boolean" and cursor))
-    TriggerEvent(__LT_RESOURCE_NAME.. ':client:@NUI:FocusChanged', status, cursor)
+    TriggerEvent(__LT_RESOURCE_NAME .. ':client:@NUI:FocusChanged', status, cursor)
 end

@@ -2,16 +2,16 @@
 --- **Lua Example:**
 --- ```lua
 --- local register = LT.Events.Register
---- 
+---
 --- -- Client example:
 --- register('event', function(arg1, arg2)
 ---     print(arg1, arg2)
 --- end)
---- 
+---
 --- -- Server example:
 --- register('event', function(arg1, arg2)
 ---     local src = source
----     print(source, arg1, arg2)
+---     print(src, arg1, arg2)
 --- end)
 --- ```
 --- @param name string Event name.

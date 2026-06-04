@@ -2,7 +2,7 @@
 --- **Lua Example:**
 --- ```lua
 --- local emit = LT.Events.Emit
---- 
+---
 --- -- Client example:
 --- emit('event', 'arg1', 'arg2')
 --- ```

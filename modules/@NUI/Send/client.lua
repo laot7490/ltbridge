@@ -1,6 +1,7 @@
 local SendNUIMessage = SendNUIMessage
+--- @deprecated
 --- **DEPRECATED**: Use `LT.NUI.Message` instead.
---- 
+---
 --- Sends a message to the NUI.
 ---
 --- **Lua Example:**
