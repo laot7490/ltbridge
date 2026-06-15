@@ -1,86 +1,98 @@
 local os_time = os.time
 local lastTriggerTime = {}
 
---- Start a cooldown for a specific player and key.
+--- Start a cooldown for a specific identifier and key.
 --- ```lua
---- LT.Cooldown.Start(source, 'gather', 5000) -- 5 seconds
+--- local citizenId = LT.Framework.GetPlayerCitizenId(source)
+--- LT.Cooldown.Start(citizenId, 'gather', 5000) -- 5 seconds
 --- ```
---- @param source string|number Player Server ID
+--- @param identifier string|number Cooldown identifier (like player citizenid)
 --- @param key string Cooldown identifier
---- @param durationMs number Cooldown duration in milliseconds
+--- @param duration number Cooldown duration in milliseconds
 --- @ltbridge export: Start
-function StartCooldown(source, key, durationMs)
-    if not source or not key then return end
-    local srcStr = tostring(source)
-    if not lastTriggerTime[srcStr] then lastTriggerTime[srcStr] = {} end
-    
-    local durationSec = durationMs / 1000
-    lastTriggerTime[srcStr][key] = os_time() + durationSec
+function StartCooldown(identifier, key, duration)
+    if not identifier or not key then return end
+    local identifierSrc = tostring(identifier)
+    if not lastTriggerTime[identifierSrc] then lastTriggerTime[identifierSrc] = {} end
+
+    local durationInSeconds = duration / 1000
+    lastTriggerTime[identifierSrc][key] = os_time() + durationInSeconds
 end
 
 --- Check if a specific cooldown is active.
 --- ```lua
---- if LT.Cooldown.Check(source, 'gather') then return end
+--- local citizenId = LT.Framework.GetPlayerCitizenId(source)
+--- if LT.Cooldown.Check(citizenId, 'gather') then return end
 --- ```
---- @param source string|number Player Server ID
+--- @param identifier string|number Cooldown identifier (like player citizenid)
 --- @param key string Cooldown identifier
 --- @return boolean
 --- @ltbridge export: Check
-function CheckCooldown(source, key)
-    if not source or not key then return false end
-    local srcStr = tostring(source)
-    
-    if not lastTriggerTime[srcStr] or not lastTriggerTime[srcStr][key] then
+function CheckCooldown(identifier, key)
+    if not identifier or not key then return false end
+    local identifierSrc = tostring(identifier)
+
+    if not lastTriggerTime[identifierSrc] or not lastTriggerTime[identifierSrc][key] then
         return false
     end
-    
-    if os_time() < lastTriggerTime[srcStr][key] then
+
+    if os_time() < lastTriggerTime[identifierSrc][key] then
         return true
     end
-    
+
     -- Cleanup expired
-    lastTriggerTime[srcStr][key] = nil
+    lastTriggerTime[identifierSrc][key] = nil
     return false
 end
 
 --- Get remaining cooldown time in milliseconds.
---- @param source string|number Player Server ID
+--- @param identifier string|number Cooldown identifier (like player citizenid)
 --- @param key string Cooldown identifier
 --- @return number remainingMs
 --- @ltbridge export: Remaining
-function GetCooldownRemaining(source, key)
-    if not source or not key then return 0 end
-    local srcStr = tostring(source)
-    
-    if not lastTriggerTime[srcStr] or not lastTriggerTime[srcStr][key] then
+function GetCooldownRemaining(identifier, key)
+    if not identifier or not key then return 0 end
+    local identifierSrc = tostring(identifier)
+
+    if not lastTriggerTime[identifierSrc] or not lastTriggerTime[identifierSrc][key] then
         return 0
     end
-    
-    local remaining = lastTriggerTime[srcStr][key] - os_time()
+
+    local remaining = lastTriggerTime[identifierSrc][key] - os_time()
     if remaining > 0 then
         return math.floor(remaining * 1000)
     end
-    
-    lastTriggerTime[srcStr][key] = nil
+
+    lastTriggerTime[identifierSrc][key] = nil
     return 0
 end
 
 --- Clear a specific cooldown early.
---- @param source string|number Player Server ID
+--- @param identifier string|number Cooldown identifier (like player citizenid)
 --- @param key string Cooldown identifier
 --- @ltbridge export: Clear
-function ClearCooldown(source, key)
-    if not source or not key then return end
-    local srcStr = tostring(source)
-    if lastTriggerTime[srcStr] then
-        lastTriggerTime[srcStr][key] = nil
+function ClearCooldown(identifier, key)
+    if not identifier or not key then return end
+    local identifierSrc = tostring(identifier)
+    if lastTriggerTime[identifierSrc] then
+        lastTriggerTime[identifierSrc][key] = nil
     end
 end
 
--- Cleanup when player drops to prevent memory leaks
-AddEventHandler('playerDropped', function()
-    local srcStr = tostring(source)
-    if lastTriggerTime[srcStr] then
-        lastTriggerTime[srcStr] = nil
+--- Cleanup expired cooldowns to prevent memory leaks.
+CreateThread(function()
+    while true do
+        if next(lastTriggerTime) then
+            for identifier, data in pairs(lastTriggerTime) do
+                for key, time in pairs(data) do
+                    if os_time() > time then
+                        lastTriggerTime[identifier][key] = nil
+                    end
+                end
+            end
+        else
+            Wait(120000) -- 2 minutes
+        end
+        Wait(60000)      -- 1 minute
     end
 end)
