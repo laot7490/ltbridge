@@ -1,6 +1,5 @@
 local currentLocale = nil
 local dict = {}
-local corruptedMsg <const> = 'Locale file ^3%s^7 is corrupted.'
 
 local function unflattenDict(flat)
     local result = {}
@@ -91,6 +90,7 @@ end
 --- @ltbridge export: Init
 function InitLocale(key, fileType)
     local extension = fileType == 'lua' and 'lua' or 'json'
+    local corruptedMsg = ('Locale file ^3%s^7 is corrupted.')
 
     -- JSON
     local locales = nil
@@ -190,7 +190,7 @@ end
 --- @ltbridge export: GetCurrentKey
 function GetCurrentLocaleKey()
     if not currentLocale then
-        printf('error', 'Locale has not been initialized. Please call `LT.Locale.Init` to initialize the locale first.')
+        printf('error', 'Locale has not been initialized. Please call `LT.Locale.Init()` to initialize the locale first.')
         return
     end
 

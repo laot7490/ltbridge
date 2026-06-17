@@ -27,18 +27,13 @@ local function format(message, ...)
     for i = 1, #data do
         local v = data[i]
 
-        if v == nil then
-            data[i] = 'nil'
-
-        elseif type(v) == "table" then
+        if type(v) == "table" then
             data[i] = json.encode(v, {
                 indent = true,
                 exception = handleException
             })
-
         elseif type(v) == "boolean" then
             data[i] = v and "true" or "false"
-
         elseif type(v) ~= "string" then
             data[i] = tostring(v)
         end
@@ -48,17 +43,17 @@ local function format(message, ...)
 end
 
 --- Set debug mode.
---- 
+---
 --- **0**: `Disabled` (Not Recommended)
---- 
+---
 --- **1**: `Errors` (Default)
---- 
+---
 --- **2**: `Errors + Warnings`
---- 
+---
 --- **3**: `Except Verbose`
---- 
+---
 --- **4**: `All Messages`
---- 
+---
 --- @param mode? number
 --- @ltbridge export: SetMode
 function SetDebugMode(mode)
@@ -75,11 +70,11 @@ function DebugDetailed(message, type, ...)
     local data = debugTypes[type]
     if not data then return end
     if tonumber(debugMode) < tonumber(data.mode) then return end
-    
+
     local info = debug.getinfo(2, 'Sl')
     local source = info and info.short_src or 'unknown'
     local line = info and info.currentline or -1
-    
+
     print(string_format('^%d[%s] %s:%d: ^7%s', data.color, type:upper(), source, line, format(message, ...)))
 end
 
@@ -93,7 +88,7 @@ function DebugPrint(message, type, ...)
     local data = debugTypes[type]
     if not data then return end
     if tonumber(debugMode) < tonumber(data.mode) then return end
-    
+
     print(string_format('^%d[%s]^7 %s^7', data.color, type:upper(), format(message, ...)))
 end
 
