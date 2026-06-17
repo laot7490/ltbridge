@@ -1,16 +1,29 @@
+---@diagnostic disable
+local adapters = {
+    ['es_extended'] = function(source)
+        return ESX.GetPlayerFromId(source)
+    end,
+    ['qb-core'] = function(source)
+        return QBCore.Functions.GetPlayer(source)
+    end,
+    ['qbx_core'] = function(source)
+        return QBX:GetPlayer(source)
+    end,
+}
+
+local adapter = adapters[GetFramework()] or function(source)
+    printf('error', 'No supported framework found.')
+    return nil
+end
+
 --- Returns player object of framework default.
 --- @param source number Player source
 --- @return table|nil
 function GetPlayer(source)
-    if not source then return nil end
-    
-    if ESX then
-        return ESX.GetPlayerFromId(source)
-    elseif QBX then
-        return QBX:GetPlayer(source)
-    elseif QBCore then
-        return QBCore.Functions.GetPlayer(source)
+    if not source then
+        printf('error', 'source is required')
+        return nil
     end
-    
-    return nil
+
+    return adapter(source)
 end

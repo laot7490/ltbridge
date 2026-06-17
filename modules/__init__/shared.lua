@@ -28,7 +28,7 @@ function printf(type, message, ...)
         return
     end
 
-    local info = debug.getinfo(2, 'Sl')
+    local info = debug.getinfo(3, 'Sl')
     local source = info and info.short_src or 'unknown'
     local line = info and info.currentline or -1
 

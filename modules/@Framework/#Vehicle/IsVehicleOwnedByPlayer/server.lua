@@ -30,7 +30,7 @@ function IsVehicleOwnedByPlayer(source, plate)
 
         return false
     else
-        printf('error', '^3IsVehicleOwnedByPlayer ^7needs ^2oxmysql ^7to work.')
+        printf('error', 'LT.Framework.IsVehicleOwnedByPlayer needs oxmysql to work.')
         return false
     end
 end

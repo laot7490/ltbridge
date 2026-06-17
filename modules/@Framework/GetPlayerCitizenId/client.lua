@@ -1,14 +1,22 @@
+local adapters = {
+    ['es_extended'] = function()
+        return GetPlayerData().identifier
+    end,
+    ['qb-core'] = function()
+        return GetPlayerData().citizenid
+    end,
+    ['qbx_core'] = function()
+        return GetPlayerData().citizenid
+    end,
+}
+
+local adapter = adapters[GetFramework()] or function()
+    printf('error', 'No supported framework found.')
+    return nil
+end
+
 --- Returns player citizenid | identifier.
 --- @return string|nil
 function GetPlayerCitizenId()
-    local playerData = GetPlayerData()
-    if not playerData then return end
-    
-    if ESX then
-        return playerData.identifier
-    elseif QBCore or QBX then
-        return playerData.citizenid
-    end
-
-    return nil
+    return adapter()
 end

@@ -1,19 +1,44 @@
+local adapters = {
+    ['es_extended'] = function(source, player, value)
+        local clamped = MathClamp(value, 0, 200000)
+        local val = clamped * 2000
+        TriggerClientEvent('esx_status:add', source, 'hunger', val)
+        return true
+    end,
+    ['qb-core'] = function(source, player, value)
+        local hunger = GetPlayerMetadata(source, 'hunger') or 0
+        local newValue = hunger + value
+        player.Functions.SetMetaData('hunger', MathClamp(newValue, 0, 100))
+        return true
+    end,
+    ['qbx_core'] = function(source, player, value)
+        local hunger = GetPlayerMetadata(source, 'hunger') or 0
+        local newValue = hunger + value
+        player.Functions.SetMetaData('hunger', MathClamp(newValue, 0, 100))
+        return true
+    end,
+}
+
+local adapter = adapters[GetFramework()] or function(...)
+    printf('error', 'No supported framework found.')
+    return nil
+end
+
 --- Add hunger to player.
 --- @param source number Player source
 --- @param value number Amount to add
---- @return number? `new hunger` if success, `nil` if player not found
+--- @return boolean
 function AddHunger(source, value)
-    local Player = GetPlayer(source)
-    if not Player then return end
-    if ESX then
-        local clamped = math.clamp(value, 0, 200000)
-        local val = clamped * 2000
-        TriggerClientEvent('esx_status:add', source, 'hunger', val)
-        return val
-    elseif QBX or QBCore then
-        local playerData = Player.PlayerData
-        local newHunger = (playerData.metadata.hunger or 0) + value
-        Player.Functions.SetMetaData('hunger', math.clamp(newHunger, 0, 100))
-        return newHunger
+    if not source then
+        printf('error', 'source is required')
+        return false
     end
+
+    local player = GetPlayer(source)
+    if not player then
+        printf('error', 'player not found')
+        return false
+    end
+
+    return adapter(source, player, value) or false
 end

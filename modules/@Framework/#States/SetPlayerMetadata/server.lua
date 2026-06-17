@@ -7,9 +7,7 @@ function SetPlayerMetadata(source, key, value)
     if not Player then return end
     if ESX then
         Player.setMeta(key, value, nil)
-    elseif QBCore then
-        Player.Functions.SetMetaData(key, value)
-    elseif QBX then
+    elseif QBCore or QBX then
         Player.Functions.SetMetaData(key, value)
     end
 

@@ -1,15 +1,6 @@
-
---- Returns player job data.
---- @param source number Player source
---- @return table|nil {name,label,grade,gradeName,gradeLabel,isBoss,onDuty}
-function GetPlayerJobData(source)
-    if not source then return end
-
-    local Player = GetPlayer(source)
-    if not Player then return end
-    
-    if ESX then
-        local job = Player.getJob()
+local adapters = {
+    ['es_extended'] = function(player)
+        local job = player.getJob()
         local isBoss = (job.grade_name == "boss")
         return {
             name = job.name,
@@ -20,8 +11,9 @@ function GetPlayerJobData(source)
             isBoss = isBoss,
             onDuty = job.onduty,
         }
-    elseif QBCore or QBX then
-        local jobData = Player.PlayerData.job
+    end,
+    ['qb-core'] = function(player)
+        local jobData = player.PlayerData.job
         return {
             name = jobData.name,
             label = jobData.label,
@@ -31,7 +23,40 @@ function GetPlayerJobData(source)
             isBoss = jobData.isboss,
             onDuty = jobData.onduty,
         }
+    end,
+    ['qbx_core'] = function(player)
+        local jobData = player.PlayerData.job
+        return {
+            name = jobData.name,
+            label = jobData.label,
+            grade = jobData.grade.level,
+            gradeName = jobData.grade.name,
+            gradeLabel = jobData.grade.name,
+            isBoss = jobData.isboss,
+            onDuty = jobData.onduty,
+        }
+    end,
+}
+
+local adapter = adapters[GetFramework()] or function(...)
+    printf('error', 'No supported framework found.')
+    return nil
+end
+
+--- Returns player job data.
+--- @param source number Player source
+--- @return table<{name: string, label: string, grade: number, gradeName: string, gradeLabel: string, isBoss: boolean, onDuty: boolean}>|nil
+function GetPlayerJobData(source)
+    if not source then
+        printf('error', 'source is required')
+        return nil
     end
 
-    return
+    local player = GetPlayer(source)
+    if not player then
+        printf('error', 'player not found')
+        return nil
+    end
+
+    return adapter(player) or nil
 end

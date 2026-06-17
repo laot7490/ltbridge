@@ -1,22 +1,34 @@
+local adapters = {
+    ['es_extended'] = function()
+        return GetPlayerData().firstName, GetPlayerData().lastName
+    end,
+    ['qb-core'] = function()
+        return GetPlayerData().charinfo.firstname, GetPlayerData().charinfo.lastname
+    end,
+    ['qbx_core'] = function()
+        return GetPlayerData().charinfo.firstname, GetPlayerData().charinfo.lastname
+    end,
+}
+
+local adapter = adapters[GetFramework()] or function()
+    printf('error', 'No supported framework found.')
+    return nil
+end
+
 --- Returns player character name.
---- @return string? Firstname
---- @return string? Lastname
-function GetPlayerName()
-    local playerData = GetPlayerData()
-    if not playerData then return end
-
-    local f
-    local l
-
-    if ESX then
-        f = playerData.firstName
-        l = playerData.lastName
-    elseif QBX or QBCore then
-        f = playerData.charinfo.firstname
-        l = playerData.charinfo.lastname
+--- @param asFullName? boolean Whether to return the full name or just the first name (Default: false)
+--- @return string? Firstname (or full name if `asFullName` is true)
+--- @return string? Lastname (or `nil` if `asFullName` is true)
+function GetPlayerName(asFullName)
+    local firstname, lastname = adapter()
+    if not firstname or not lastname then
+        printf('error', 'Player name or last name not found.')
+        return nil
     end
 
-    if f and l then
-        return f, l
+    if asFullName then
+        return firstname .. ' ' .. lastname
+    else
+        return firstname, lastname
     end
 end

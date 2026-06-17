@@ -29,7 +29,7 @@ function GetOwnedVehicles(source)
 
         return {}
     else
-        printf('error', '^3GetOwnedVehicles ^7needs ^2oxmysql ^7to work.')
+        printf('error', 'LT.Framework.GetOwnedVehicles needs oxmysql to work.')
         return {}
     end
 end

@@ -1,15 +1,34 @@
---- Returns players phone number.
----@param source number Player source
----@return string|nil
-function GetPlayerPhoneNumber(source)
-    local Player = GetPlayer(source)
-    if not Player then return end
+local adapters = {
+    ['es_extended'] = function(player)
+        return player.get("phone_number")
+    end,
+    ['qb-core'] = function(player)
+        return player.PlayerData.charinfo.phone
+    end,
+    ['qbx_core'] = function(player)
+        return player.PlayerData.charinfo.phone
+    end,
+}
 
-    if ESX then
-        return Player.get("phone_number")
-    elseif QBX or QBCore then
-        return Player.PlayerData.charinfo.phone
+local adapter = adapters[GetFramework()] or function(...)
+    printf('error', 'No supported framework found.')
+    return nil
+end
+
+--- Returns players phone number.
+--- @param source number Player source
+--- @return string|nil
+function GetPlayerPhoneNumber(source)
+    if not source then
+        printf('error', 'source is required')
+        return nil
     end
 
-    return nil
+    local player = GetPlayer(source)
+    if not player then
+        printf('error', 'player not found')
+        return nil
+    end
+
+    return adapter(player)
 end

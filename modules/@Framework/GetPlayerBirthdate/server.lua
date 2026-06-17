@@ -1,13 +1,35 @@
+---@diagnostic disable
+local adapters = {
+    ['es_extended'] = function(player)
+        return player.get("dateofbirth")
+    end,
+    ['qb-core'] = function(player)
+        return player.PlayerData.charinfo.birthdate
+    end,
+    ['qbx_core'] = function(player)
+        return player.PlayerData.charinfo.birthdate
+    end,
+}
+
+local adapter = adapters[GetFramework()] or function(...)
+    printf('error', 'No supported framework found.')
+    return nil
+end
+
 --- Returns player date of birth.
 --- @param source number Player source
 --- @return string|nil
 function GetPlayerBirthdate(source)
-    local player = GetPlayer(source)
-    if not player then return nil end
-    if ESX then
-        return player.get("dateofbirth")
-    elseif QBX or QBCore then
-        return player.PlayerData.charinfo.birthdate
+    if not source then
+        printf('error', 'source is required')
+        return nil
     end
-    return nil
+
+    local player = GetPlayer(source)
+    if not player then
+        printf('error', 'player not found')
+        return nil
+    end
+
+    return adapter(player) or nil
 end

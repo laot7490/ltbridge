@@ -1,8 +1,7 @@
---- Returns player job data.
---- @return table|nil {name,label,grade,gradeName,gradeLabel,isBoss,onDuty}
-function GetPlayerJobData()
-    local jobData = GetPlayerData().job
-    if ESX then
+--- @diagnostic disable
+
+local adapters = {
+    ['es_extended'] = function(jobData)
         local isBoss = (jobData.grade_name == "boss")
         return {
             name = jobData.name,
@@ -13,7 +12,8 @@ function GetPlayerJobData()
             isBoss = isBoss,
             onDuty = jobData.onduty,
         }
-    elseif QBCore then
+    end,
+    ['qb-core'] = function(jobData)
         return {
             name = jobData.name,
             label = jobData.label,
@@ -23,7 +23,8 @@ function GetPlayerJobData()
             isBoss = jobData.isboss,
             onDuty = jobData.onduty,
         }
-    elseif QBX then
+    end,
+    ['qbx_core'] = function(jobData)
         return {
             name = jobData.name,
             label = jobData.label,
@@ -33,7 +34,22 @@ function GetPlayerJobData()
             isBoss = jobData.isboss,
             onDuty = jobData.onduty,
         }
+    end,
+}
+
+local adapter = adapters[GetFramework()] or function(...)
+    printf('error', 'No supported framework found.')
+    return nil
+end
+
+--- Returns player job data.
+--- @return table<{name: string, label: string, grade: number, gradeName: string, gradeLabel: string, isBoss: boolean, onDuty: boolean}>|nil
+function GetPlayerJobData()
+    local jobData = GetPlayerData().job
+    if not jobData then
+        printf('error', 'job data not found')
+        return nil
     end
 
-    return
+    return adapter(jobData)
 end
