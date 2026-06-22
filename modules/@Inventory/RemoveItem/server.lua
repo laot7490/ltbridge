@@ -1,5 +1,5 @@
 local function removeESXItem(source, item, count, slot, metadata)
-    local msg = "This framework (esx) does not support %s, please ensure you are using a supported inventory system or that you have the correct start order."
+    local msg = "ESX framework does not support %s, please ensure you are using a supported inventory system or that you have the correct start order."
     if slot then
         printf('error', msg, 'item slots')
     end
@@ -44,6 +44,10 @@ local adapters = {
         local success = Inventory:removeItem(source, item, count, metadata, slot, false)
         return success or false
     end,
+    ['one_inventory'] = function(source, item, count, slot, metadata)
+        local success = Inventory:RemoveItem(source, item, count, metadata, slot)
+        return success or false
+    end,
 
     fallback = function(source, item, count, slot, metadata)
         if ESX then
@@ -65,6 +69,6 @@ function RemoveItem(source, item, count, slot, metadata)
     local name = GetInventoryResource()
     local adapter = adapters[name]
     if not adapter then adapter = adapters.fallback end
-    
+
     return adapter(source, item, count, slot, metadata)
 end

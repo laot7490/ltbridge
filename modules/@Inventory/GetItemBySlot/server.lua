@@ -63,7 +63,10 @@ local adapters = {
             end
         end
         return {}
-    end
+    end,
+    ['one_inventory'] = function(source, slot)
+        return Inventory:GetSlot(source, slot)
+    end,
 }
 
 --- Returns the specified slot item data as a table.
@@ -72,7 +75,10 @@ local adapters = {
 --- @return table|nil {name, label, count, slot, weight, metadata, stack, description}
 function GetItemBySlot(source, slot)
     local name = GetInventoryResource()
-    if not adapters[name] then return nil end
-    
+    if not adapters[name] then
+        printf('error', 'Inventory resource not found. This function will return nil.')
+        return nil
+    end
+
     return adapters[name](source, slot)
 end

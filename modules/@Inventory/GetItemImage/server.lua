@@ -35,14 +35,20 @@ local adapters = {
         local webpItem = stripWebp(item)
         local pngPath = LoadResourceFile("inventory_images", string_format("/images/%s.png", item))
         local webpPath = LoadResourceFile("inventory_images", string_format("/images/%s.webp", webpItem))
-        local imagePath = pngPath and string_format("nui://inventory_images/images/%s.png", item) or webpPath and string_format("nui://inventory_images/images/%s.webp", webpItem)
+        local imagePath = pngPath and string_format("nui://inventory_images/images/%s.png", item) or
+            webpPath and string_format("nui://inventory_images/images/%s.webp", webpItem)
         return imagePath or laot
     end,
     ['origen_inventory'] = function(item)
         local file = LoadResourceFile("origin", string_format("html/images/%s.png", item))
         local imagePath = file and string_format("nui://origen_inventory/html/images/%s.png", item)
         return imagePath or laot
-    end
+    end,
+    ['one_inventory'] = function(item)
+        local file = LoadResourceFile("one_inventory", string_format("web/images/%s.png", item))
+        local imagePath = file and string_format("nui://one_inventory/web/images/%s.png", item)
+        return imagePath or laot
+    end,
 }
 
 --- Returns item image path.
@@ -53,6 +59,6 @@ function GetItemImage(item)
     if not adapters[name] then return end
 
     item = stripPng(item)
-    
+
     return adapters[name](item)
 end

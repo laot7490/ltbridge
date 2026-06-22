@@ -1,6 +1,7 @@
 local function getESXItemCount(source, item, metadata)
     if metadata then
-        printf('warning', 'This framework ^1(ESX)^7 does not support item metadata, please ensure you are using a supported inventory system or that you have the correct start order.')
+        printf('warning',
+            'ESX framework does not support item metadata, please ensure you are using a supported inventory system or that you have the correct start order.')
     end
     local Player = GetPlayer(source)
     if not Player then return 0 end
@@ -26,7 +27,8 @@ local adapters = {
     end,
     ['qs-inventory'] = function(source, item, metadata)
         if metadata then
-            printf('warning', '^1qs-inventory^7 does not support metadata searching for item counts, you will need to get the inventory and parse it manually.')
+            printf('warning',
+                '^1qs-inventory^7 does not support metadata searching for item counts, you will need to get the inventory and parse it manually.')
         end
         return Inventory:GetItemTotalAmount(source, item)
     end,
@@ -39,6 +41,9 @@ local adapters = {
     end,
     ['origen_inventory'] = function(source, item, metadata)
         return Inventory:getItemCount(source, item, metadata, false)
+    end,
+    ['one_inventory'] = function(source, item, metadata)
+        return Inventory:GetItemCount(source, item, metadata)
     end,
 
     fallback = function(source, item, metadata)
@@ -60,6 +65,6 @@ function GetItemCountServer(source, item, metadata)
     local name = GetInventoryResource()
     local adapter = adapters[name]
     if not adapter then adapter = adapters.fallback end
-    
+
     return adapter(source, item, metadata) or 0
 end

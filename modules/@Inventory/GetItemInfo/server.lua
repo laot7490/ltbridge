@@ -61,6 +61,18 @@ local adapters = {
             description = itemData.description or "none",
             image = GetItemImage(item),
         }
+    end,
+    ['one_inventory'] = function(item)
+        local itemData = Inventory:GetItemDefinition(item)
+        if not itemData then return {} end
+        return {
+            name = itemData.name,
+            label = itemData.label,
+            stack = itemData.unique,
+            weight = itemData.weight,
+            description = itemData.description,
+            image = GetItemImage(item)
+        }
     end
 }
 
@@ -69,7 +81,10 @@ local adapters = {
 --- @return table|nil {name, label, stack, weight, description, image}
 function GetItemInfo(item)
     local name = GetInventoryResource()
-    if not adapters[name] then return end
-    
+    if not adapters[name] then
+        printf('error', 'Inventory resource not found. This function will return nil.')
+        return nil
+    end
+
     return adapters[name](item)
 end

@@ -16,7 +16,10 @@ local adapters = {
     end,
     ['origen_inventory'] = function(source, item, slot, metadata)
         return Inventory:setMetadata(source, slot, metadata)
-    end
+    end,
+    ['one_inventory'] = function(source, item, slot, metadata)
+        return Inventory:SetItemMetadata(source, slot, metadata)
+    end,
 }
 
 --- Set/change metadata of item.
@@ -27,6 +30,6 @@ local adapters = {
 function SetItemMetadata(source, item, slot, metadata)
     local name = GetInventoryResource()
     if not adapters[name] then return 0 end
-    
+
     return adapters[name](source, item, slot, metadata)
 end

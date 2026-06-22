@@ -3,11 +3,12 @@ local resourceName = nil
 Inventory = {}
 
 local list = {
-    ['ox_inventory'] = { providers = {'tgiann-inventory', 'qs-inventory', 'origen_inventory'} },
+    ['ox_inventory'] = { providers = { 'tgiann-inventory', 'qs-inventory', 'origen_inventory' } },
     ['qs-inventory'] = {},
-    ['qb-inventory'] = { providers = {'ox_inventory','origen_inventory'} },
+    ['qb-inventory'] = { providers = { 'ox_inventory', 'origen_inventory' } },
     ['tgiann-inventory'] = {},
-    ['origen_inventory'] = { providers = {'ox_inventory'} },
+    ['origen_inventory'] = { providers = { 'ox_inventory' } },
+    ['one_inventory'] = {},
 }
 
 --- Returns inventory resource name.

@@ -1,5 +1,5 @@
 local function addESXItem(source, item, count, slot, metadata)
-    local msg = "This framework ^1ESX^7 does not support ^3%s^7, please ensure you are using a supported inventory system or that you have the correct start order."
+    local msg = "ESX framework does not support %s, please ensure you are using a supported inventory system or that you have the correct start order."
     if slot then
         printf('warning', msg, 'item slots')
     end
@@ -47,6 +47,11 @@ local adapters = {
     ['origen_inventory'] = function(source, item, count, slot, metadata)
         if not Inventory:canCarryItem(source, item, count) then return false end
         local success = Inventory:addItem(source, item, count, metadata, slot, false)
+        return success or false
+    end,
+    ['one_inventory'] = function(source, item, count, slot, metadata)
+        if not Inventory:CanCarryItem(source, item, count) then return false end
+        local success = Inventory:AddItem(source, item, count, metadata, slot)
         return success or false
     end,
 

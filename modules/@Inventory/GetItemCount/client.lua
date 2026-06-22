@@ -1,7 +1,8 @@
 local function frameworkSearch(item, metadata)
     if ESX then
         if metadata then
-            printf('warning', 'This framework ^1(ESX)^7 does not support item metadata, please ensure you are using a supported inventory system or that you have the correct start order.')
+            printf('warning',
+                'ESX framework does not support item metadata, please ensure you are using a supported inventory system or that you have the correct start order.')
         end
         local result = ESX.SearchInventory(item)
         return result.count
@@ -23,7 +24,8 @@ local adapters = {
     end,
     ['qs-inventory'] = function(item, metadata)
         if metadata then
-            printf('warning', '^1qs-inventory^7 does not support metadata searching for item counts, you will need to get the inventory and parse it manually.')
+            printf('warning',
+                'qs-inventory does not support metadata searching for item counts, you will need to get the inventory and parse it manually.')
         end
         return Inventory:Search(item)
     end,
@@ -35,6 +37,9 @@ local adapters = {
     end,
     ['origen_inventory'] = function(item, metadata)
         return Inventory:Search('count', item, metadata).count
+    end,
+    ['one_inventory'] = function(item, metadata)
+        return Inventory:GetItemCount(item, metadata)
     end,
 
     fallback = function(item, metadata)
@@ -51,6 +56,6 @@ function GetItemCountClient(item, metadata)
     local name = GetInventoryResource()
     local adapter = adapters[name]
     if not adapter then adapter = adapters.fallback end
-    
+
     return adapter(item, metadata) or 0
 end

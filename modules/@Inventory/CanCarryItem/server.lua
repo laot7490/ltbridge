@@ -13,7 +13,10 @@ local adapters = {
     end,
     ['origen_inventory'] = function(source, item, count)
         return Inventory:canCarryItem(source, item, count)
-    end
+    end,
+    ['one_inventory'] = function(source, item, count)
+        return Inventory:CanCarryItem(source, item, count)
+    end,
 }
 
 --- Check if player can carry item.
@@ -23,7 +26,10 @@ local adapters = {
 --- @return boolean
 function CanCarryItem(source, item, count)
     local name = GetInventoryResource()
-    if not adapters[name] then printf('error', 'Inventory resource not found. This function will return false.') return false end
+    if not adapters[name] then
+        printf('error', 'Inventory resource not found. This function will return false.')
+        return false
+    end
 
     return adapters[name](source, item, count)
 end

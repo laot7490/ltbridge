@@ -35,7 +35,8 @@ local adapters = {
         local items = {}
         for _, v in pairs(inventory) do
             if tonumber(_) then
-                table.insert(items, {name = v.name, label = v.name, weight = 0, description = v.description, slot = v.slot, count = v.amount, metadata = v.info})
+                table.insert(items,
+                    { name = v.name, label = v.name, weight = 0, description = v.description, slot = v.slot, count = v.amount, metadata = v.info })
             end
         end
         return items
@@ -57,6 +58,9 @@ local adapters = {
         end
         return repack
     end,
+    ['one_inventory'] = function(source)
+        return Inventory:GetInventoryItems(source)
+    end,
 
     fallback = function(source)
         if ESX then
@@ -70,7 +74,7 @@ local adapters = {
                         name = v.name,
                         count = v.count,
                         metadata = {}, -- no support for metadata
-                        slot = 0, -- no slots
+                        slot = 0,      -- no slots
                     })
                 end
             end
