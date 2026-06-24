@@ -15,10 +15,19 @@ function generateFullApi(targetDir) {
 	const db = getDatabase();
 	const apiStubs = [];
 	const requiredTables = new Set();
+	const typeMap = new Map();
 
 	for (const [modName, modData] of Object.entries(db.modules)) {
 		if (modData.ns) requiredTables.add(`LT.${modData.ns} = LT.${modData.ns} or {}`);
 
+		const processTypes = (ctxData) => {
+			if (!ctxData || !ctxData.types) return;
+			for (const typeEntry of ctxData.types) {
+				if (typeEntry && typeEntry.className && typeEntry.code) {
+					typeMap.set(typeEntry.className, typeEntry.code);
+				}
+			}
+		};
 		const processCtx = (ctxData) => {
 			if (ctxData && ctxData.stubs) {
 				for (const stub of ctxData.stubs) {
@@ -28,6 +37,9 @@ function generateFullApi(targetDir) {
 				}
 			}
 		};
+		processTypes(modData.shared);
+		processTypes(modData.client);
+		processTypes(modData.server);
 		processCtx(modData.shared);
 		processCtx(modData.client);
 		processCtx(modData.server);
@@ -38,7 +50,8 @@ function generateFullApi(targetDir) {
 
 	const apiHeader = `--- @meta\n--- LT Bridge API Reference\n--- Auto-generated stub file for IDE intellisense.\n--- Do NOT include this file in your fxmanifest.\n\n`;
 	const initBlock = `LT = LT or {}\n` + Array.from(requiredTables).sort().join("\n") + "\n\n";
-	const apiContent = apiHeader + initBlock + apiStubs.join("\n\n") + "\n";
+	const typesBlock = typeMap.size > 0 ? Array.from(typeMap.values()).join("\n\n") + "\n\n" : "";
+	const apiContent = apiHeader + initBlock + typesBlock + apiStubs.join("\n\n") + "\n";
 
 	fs.writeFileSync(path.join(ltModulesDir, "api.lua"), apiContent);
 }
@@ -137,9 +150,7 @@ function rebuildBundle(targetDir, config, options = {}) {
 
 	if (options.details) {
 		console.log(`\n\x1b[1m\x1b[35m📦 Bundling Sequence (${loadSequence.length} modules):\x1b[0m`);
-		loadSequence.forEach((mod, index) =>
-			console.log(`  \x1b[90m${(index + 1).toString().padStart(2, "0")}.\x1b[0m ${mod}`),
-		);
+		loadSequence.forEach((mod, index) => console.log(`  \x1b[90m${(index + 1).toString().padStart(2, "0")}.\x1b[0m ${mod}`));
 		console.log("");
 	}
 
@@ -309,8 +320,7 @@ function rebuildBundle(targetDir, config, options = {}) {
 		if (targetRequiredTables) {
 			return newSource + (extraExports.length > 0 ? `\n-- Exports\n${extraExports}` : "");
 		} else {
-			const initStr =
-				`LT = LT or {}\n` + Array.from(requiredTables).join("\n") + (requiredTables.size > 0 ? `\n\n` : `\n`);
+			const initStr = `LT = LT or {}\n` + Array.from(requiredTables).join("\n") + (requiredTables.size > 0 ? `\n\n` : `\n`);
 			return initStr + newSource + (extraExports.length > 0 ? `\n-- Exports\n${extraExports}` : "");
 		}
 	};

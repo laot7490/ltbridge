@@ -1,6 +1,7 @@
 const fs = require("fs-extra");
 const path = require("path");
 const { applyBuildConstants } = require("../src/buildConstants");
+const { transformLtassertStatements } = require("../src/transformLtassert");
 
 const modulesDir = path.join(__dirname, "..", "modules");
 const version = require("../package.json").version;
@@ -237,8 +238,7 @@ function extractStubs(code, ns, context) {
 		}
 
 		let commentBlock = rawBlock;
-		const dynRegex =
-			/^[ \t]*---[ \t]*@ltbridge[ \t]+(params?|returns?)[.: \t]+([a-zA-Z0-9_]+)(?:[.: \t]+([a-zA-Z0-9_]+))?/gm;
+		const dynRegex = /^[ \t]*---[ \t]*@ltbridge[ \t]+(params?|returns?)[.: \t]+([a-zA-Z0-9_]+)(?:[.: \t]+([a-zA-Z0-9_]+))?/gm;
 		commentBlock = commentBlock.replace(dynRegex, (m, type, tableName, extraArg) => {
 			const keys = extractTableKeys(code, tableName);
 			if (!keys || keys.length === 0) return `--- @${type.startsWith("param") ? "param" : "return"} any`;
@@ -279,6 +279,39 @@ function extractStubs(code, ns, context) {
 	return stubs;
 }
 
+const CLASS_LINE_RE = /^[ \t]*---[ \t]*@class[ \t]+([a-zA-Z_][a-zA-Z0-9_.]*)/;
+const CLASS_RELATED_LINE_RE = /^[ \t]*---[ \t]*@(field|extends|generic)\b/;
+
+function extractEmmyClasses(code) {
+	if (!code) return [];
+	const lines = code.split(/\r?\n/);
+	const types = [];
+	let i = 0;
+	while (i < lines.length) {
+		const classMatch = CLASS_LINE_RE.exec(lines[i]);
+		if (!classMatch) {
+			i++;
+			continue;
+		}
+		const className = classMatch[1];
+		const blockLines = [lines[i]];
+		i++;
+		while (i < lines.length) {
+			const line = lines[i];
+			if (CLASS_RELATED_LINE_RE.test(line)) {
+				blockLines.push(line);
+				i++;
+				continue;
+			}
+			if (/^[ \t]*---/.test(line)) break;
+			if (line.trim().length > 0) break;
+			break;
+		}
+		types.push({ className, code: blockLines.join("\n") });
+	}
+	return types;
+}
+
 function compile() {
 	if (!fs.existsSync(distDir)) fs.mkdirSync(distDir, { recursive: true });
 
@@ -293,9 +326,7 @@ function compile() {
 		if (!fs.existsSync(currentPath)) return;
 		const items = fs.readdirSync(currentPath);
 
-		let isModule = items.some(
-			(i) => i === "client.lua" || i === "server.lua" || i === "shared.lua" || i === "module.json",
-		);
+		let isModule = items.some((i) => i === "client.lua" || i === "server.lua" || i === "shared.lua" || i === "module.json");
 
 		if (isModule) {
 			const relative = path.relative(modulesDir, currentPath);
@@ -324,18 +355,26 @@ function compile() {
 				if (fs.existsSync(fPath)) {
 					const rawCode = fs.readFileSync(fPath, "utf8");
 					const stubs = extractStubs(rawCode, ns, ctx);
+					const types = extractEmmyClasses(rawCode);
 					let cleanCode = stripLuaComments(rawCode);
 					cleanCode = applyBuildConstants(cleanCode, { version: version });
-					modData.files[ctx] = { code: cleanCode, stubs: stubs };
+					cleanCode = transformLtassertStatements(cleanCode);
+					modData.files[ctx] = { code: cleanCode, stubs: stubs, types: types };
 				}
 			});
 
 			db.modules[cleanName] = {
 				ns: modData.ns,
 				meta: modData.meta,
-				shared: modData.files.shared ? { code: modData.files.shared.code, stubs: modData.files.shared.stubs } : null,
-				client: modData.files.client ? { code: modData.files.client.code, stubs: modData.files.client.stubs } : null,
-				server: modData.files.server ? { code: modData.files.server.code, stubs: modData.files.server.stubs } : null,
+				shared: modData.files.shared
+					? { code: modData.files.shared.code, stubs: modData.files.shared.stubs, types: modData.files.shared.types }
+					: null,
+				client: modData.files.client
+					? { code: modData.files.client.code, stubs: modData.files.client.stubs, types: modData.files.client.types }
+					: null,
+				server: modData.files.server
+					? { code: modData.files.server.code, stubs: modData.files.server.stubs, types: modData.files.server.types }
+					: null,
 			};
 			db.registry[cleanName] = relative.replace(/\\/g, "/");
 		} else {
