@@ -31,6 +31,7 @@ end
 --- Creates a new blip.
 --- @param data BlipProperties Blip data
 --- @return table|boolean Blip handler or false if failed
+--- @ltbridge export: Create
 function CreateBlip(data)
     local self = setmetatable({}, Blip)
 
@@ -111,11 +112,13 @@ end
 
 --- Gets all blips.
 --- @return table Blips
+--- @ltbridge export: GetAll
 function GetAllBlips()
     return blips
 end
 
 --- Deletes all blips.
+--- @ltbridge export: DeleteAll
 function DeleteAllBlips()
     for _, blip in pairs(blips) do
         blip:delete()
@@ -139,7 +142,7 @@ end
 --- @param coords vector3 Coordinates to set
 --- @return boolean
 function Blip:setCoords(coords)
-    if type(coords) ~= 'vector3' then
+    if not validateCoords(coords) then
         printf('error', 'coords must be a vector3')
         return false
     end

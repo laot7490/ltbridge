@@ -5,6 +5,11 @@ local CreateVehicle = CreateVehicle
 local DoesEntityExist = DoesEntityExist
 local NetworkDoesNetworkIdExist = NetworkDoesNetworkIdExist
 
+local function validateCoords(coords)
+    return type(coords) == 'vector3' or
+        (type(coords) == 'table' and type(coords.x) == 'number' and type(coords.y) == 'number' and type(coords.z) == 'number')
+end
+
 --- Spawns a networked vehicle at the given position.
 --- @param model string Model name
 --- @param coords vector3 Coordinates
@@ -18,7 +23,7 @@ function SpawnVehicle(model, coords, heading)
         return false
     end
 
-    if not coords then
+    if not validateCoords(coords) then
         printf('error', 'coords are required')
         return false
     end
