@@ -18,7 +18,7 @@ Blip.__index = Blip
 ---@field bright? boolean Whether the blip is a bright blip (default: false)
 ---@field flash? boolean Whether the blip is flashing (default: false)
 ---@field flashInterval? number Flash interval of the blip (default: 500ms)
----@field delete fun(self: self) Delete the blip
+---@field delete? fun(self: self) Delete the blip
 
 ---@type table Blip handlers
 local blips = {}
