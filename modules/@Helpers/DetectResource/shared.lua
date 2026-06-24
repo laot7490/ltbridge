@@ -10,7 +10,7 @@ function DetectResource(list, name)
     for resourceName, data in pairs(list) do
         if GetResourceState(resourceName) ~= 'missing' then
             local canSelect = true
-            
+
             if data.providers then
                 for i = 1, #data.providers do
                     if GetResourceState(data.providers[i]) ~= 'missing' then
@@ -19,9 +19,9 @@ function DetectResource(list, name)
                     end
                 end
             end
-            
+
             if canSelect then
-                startedResources[#startedResources+1] = resourceName
+                startedResources[#startedResources + 1] = resourceName
             end
         end
     end

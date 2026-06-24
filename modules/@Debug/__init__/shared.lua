@@ -75,7 +75,7 @@ function DebugDetailed(message, type, ...)
     local source = info and info.short_src or 'unknown'
     local line = info and info.currentline or -1
 
-    print(string_format('^%d[%s] %s:%d: ^7%s', data.color, type:upper(), source, line, format(message, ...)))
+    print(string_format('^%d[%s] %s:%d: ^7%s^7', data.color, type:upper(), source, line, format(message, ...)))
 end
 
 --- Prints a formatted debug message.

@@ -28,7 +28,7 @@ function printf(type, message, ...)
         return
     end
 
-    local info = debug.getinfo(3, 'Sl')
+    local info = debug.getinfo(4, 'Sl')
     local source = info and info.short_src or 'unknown'
     local line = info and info.currentline or -1
 
@@ -52,4 +52,18 @@ function printf(type, message, ...)
         .. format(message, ...)
         .. '^7'
     )
+end
+
+--- Asserts a condition and prints an error if it is false.
+--- @param condition boolean Condition to assert
+--- @param message string Message to print if condition is false
+--- @param ...? any Additional parameters
+--- @return boolean
+--- @ltbridge internal
+function ltassert(condition, message, ...)
+    if not condition then
+        printf('error', message, ...)
+        return false
+    end
+    return true
 end
