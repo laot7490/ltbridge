@@ -32,10 +32,7 @@ function SetPlayerJob(source, name, grade)
     end
 
     local player = GetPlayer(source)
-    if not player then
-        printf('error', 'player not found')
-        return false
-    end
+    ltassert(player, 'player not found')
 
     adapter(player, name, grade)
     return true

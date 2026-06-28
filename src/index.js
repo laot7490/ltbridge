@@ -6,11 +6,12 @@ const { resolveDependencies } = require("./moduleResolver");
 const { getModuleRegistry, getModuleData } = require("./registry");
 const { pickExportModule } = require("./resolveExport");
 const { getVisibleModules, buildModuleGroups, getDependencySets, getFilteredSortedMods } = require("./moduleListUi");
+const { computeBuildFingerprint, loadBuildState, saveBuildState } = require("./buildState");
 const prompts = require("prompts");
 
 const CONFIG_FILE = path.join("ltbridge", "ltbridge.config.json");
 
-async function initProject(targetDir, options = {}) {
+async function initProject(targetDir) {
 	const configPath = path.join(targetDir, CONFIG_FILE);
 	let alreadyInitialized = fs.existsSync(configPath);
 
@@ -29,50 +30,42 @@ async function initProject(targetDir, options = {}) {
 
 	console.log(`\n\x1b[36m⚡ ltbridge v${version}\x1b[0m \x1b[32mInitializing project...\x1b[0m\n`);
 
-	let doMinify = options.minify !== false;
-	let doDebug = options.debug === true;
-	let doBundle = false;
+	const response = await prompts([
+		{
+			type: "select",
+			name: "buildMode",
+			message: "Build Output Mode:",
+			choices: [
+				{ title: "Individual (Separate files per module)", value: false },
+				{ title: "Bundle (Combine all into 3 files)", value: true },
+			],
+			initial: 0,
+		},
+		{
+			type: "select",
+			name: "minify",
+			message: "Bundled code minification:",
+			choices: [
+				{ title: "Enabled (Compact production code)", value: true },
+				{ title: "Disabled (Readable development code)", value: false },
+			],
+			initial: 0,
+		},
+		{
+			type: "select",
+			name: "debug",
+			message: "Runtime debug mode:",
+			choices: [
+				{ title: "Disabled (Recommended for production)", value: false },
+				{ title: "Enabled (Detailed logs and helper outputs)", value: true },
+			],
+			initial: 0,
+		},
+	]);
 
-	const isInteractive = !process.argv.includes("--no-minify") && !process.argv.includes("--debug");
-
-	if (isInteractive) {
-		const response = await prompts([
-			{
-				type: "select",
-				name: "buildMode",
-				message: "Build Output Mode:",
-				choices: [
-					{ title: "Individual (Separate files per module)", value: false },
-					{ title: "Bundle (Combine all into 3 files)", value: true },
-				],
-				initial: 0,
-			},
-			{
-				type: "select",
-				name: "minify",
-				message: "Bundled code minification:",
-				choices: [
-					{ title: "Enabled (Compact production code)", value: true },
-					{ title: "Disabled (Readable development code)", value: false },
-				],
-				initial: 0,
-			},
-			{
-				type: "select",
-				name: "debug",
-				message: "Runtime debug mode:",
-				choices: [
-					{ title: "Disabled (Recommended for production)", value: false },
-					{ title: "Enabled (Detailed logs and helper outputs)", value: true },
-				],
-				initial: 0,
-			},
-		]);
-
-		if (response.buildMode !== undefined) doBundle = response.buildMode;
-		if (response.minify !== undefined) doMinify = response.minify;
-		if (response.debug !== undefined) doDebug = response.debug;
-	}
+	const doBundle = response.buildMode === true;
+	const doMinify = response.minify !== false;
+	const doDebug = response.debug === true;
 
 	const initialConfig = {
 		version: version,
@@ -90,10 +83,7 @@ async function initProject(targetDir, options = {}) {
 	console.log(`\x1b[90mℹ Debug: ${doDebug ? "enabled" : "disabled"}\x1b[0m\n`);
 
 	generateFullApi(targetDir);
-
-	if (options.noBuild !== true) {
-		rebuildBundle(targetDir, initialConfig);
-	}
+	rebuildAndSyncState(targetDir, initialConfig);
 }
 
 function getConfig(targetDir) {
@@ -222,7 +212,7 @@ function addModule(targetDir, moduleName) {
 
 	if (addedCount > 0) {
 		saveConfig(targetDir, config);
-		rebuildBundle(targetDir, config, { skipApi: true });
+		rebuildAndSyncState(targetDir, config, { skipApi: true });
 	} else if (moduleName.endsWith("*")) {
 		if (internalBlocked) {
 			console.log(
@@ -263,7 +253,7 @@ function removeModule(targetDir, moduleName) {
 
 	if (removedCount > 0) {
 		saveConfig(targetDir, config);
-		rebuildBundle(targetDir, config, { skipApi: true });
+		rebuildAndSyncState(targetDir, config, { skipApi: true });
 	} else if (moduleName.endsWith("*")) {
 		console.log(`\x1b[90mℹ No matching modules were currently added.\x1b[0m`);
 	}
@@ -272,7 +262,7 @@ function removeModule(targetDir, moduleName) {
 function refreshModules(targetDir, options = {}) {
 	const config = getConfig(targetDir);
 	console.log(`\n\x1b[36m⚡ ltbridge v${version}\x1b[0m \x1b[32mbuilding for production...\x1b[0m`);
-	rebuildBundle(targetDir, config, options);
+	rebuildAndSyncState(targetDir, config, options);
 }
 
 function scanLuaCalls(dir) {
@@ -330,6 +320,14 @@ function resolveCallsToModules(foundCalls) {
 	return validRequestedModules;
 }
 
+function rebuildAndSyncState(targetDir, config, options = {}) {
+	rebuildBundle(targetDir, config, options);
+	const foundModules = scanLuaCalls(targetDir);
+	const fingerprint = computeBuildFingerprint(config, version, foundModules);
+	saveBuildState(targetDir, fingerprint);
+	return fingerprint;
+}
+
 function pruneModules(targetDir) {
 	const config = getConfig(targetDir);
 	console.log(`\x1b[90mℹ Scanning project for unused LT modules...\x1b[0m`);
@@ -356,7 +354,7 @@ function pruneModules(targetDir) {
 		console.log(`\x1b[90mℹ No unused modules found. Everything is tightly integrated!\x1b[0m`);
 	}
 
-	rebuildBundle(targetDir, config, { skipApi: true });
+	rebuildAndSyncState(targetDir, config, { skipApi: true });
 }
 
 let watchTimeout = null;
@@ -396,7 +394,7 @@ function watchProject(targetDir, options = {}) {
 		lastConfigState = fs.readFileSync(configPath, "utf-8");
 	}
 
-	function syncModules(forceRebuild = false) {
+	function syncModules({ initial = false } = {}) {
 		if (watchIsSyncing) {
 			watchPendingSync = true;
 			return;
@@ -406,34 +404,46 @@ function watchProject(targetDir, options = {}) {
 		const foundModules = scanLuaCalls(targetDir);
 		const validRequestedModules = resolveCallsToModules(foundModules);
 
-		let changed = false;
+		let modulesChanged = false;
 		const newConfigModules = new Set(currentConfig.modules);
 
 		for (const mod of validRequestedModules) {
 			if (!newConfigModules.has(mod)) {
 				newConfigModules.add(mod);
-				changed = true;
+				modulesChanged = true;
 			}
 		}
 
 		for (const mod of currentConfig.modules) {
 			if (!validRequestedModules.has(mod)) {
 				newConfigModules.delete(mod);
-				changed = true;
+				modulesChanged = true;
 			}
 		}
 
-		if (!changed && !forceRebuild) return;
+		if (modulesChanged) {
+			currentConfig.modules = Array.from(newConfigModules);
+		}
+
+		const fingerprint = computeBuildFingerprint(currentConfig, version, foundModules);
+		const lastState = loadBuildState(targetDir);
+
+		if (lastState?.fingerprint === fingerprint) {
+			if (initial) {
+				console.log(`\x1b[90mℹ Build up to date, skipping initial rebuild\x1b[0m`);
+			} else {
+				console.log(`\x1b[90mℹ No LTBridge changes detected, skipping build\x1b[0m`);
+			}
+			return;
+		}
 
 		watchIsSyncing = true;
 		try {
-			if (changed) {
-				currentConfig.modules = Array.from(newConfigModules);
-			}
 			lastConfigState = JSON.stringify(currentConfig, null, 2);
-			if (changed) saveConfig(targetDir, currentConfig);
+			if (modulesChanged) saveConfig(targetDir, currentConfig);
 
 			rebuildBundle(targetDir, currentConfig, { skipApi: true, ...options });
+			saveBuildState(targetDir, fingerprint);
 		} finally {
 			watchIsSyncing = false;
 			if (watchPendingSync) {
@@ -447,7 +457,7 @@ function watchProject(targetDir, options = {}) {
 		if (watchTimeout) clearTimeout(watchTimeout);
 		watchTimeout = setTimeout(() => {
 			try {
-				syncModules(true);
+				syncModules();
 			} catch (e) {
 				console.log(`\x1b[31m✖ Watcher error: ${e.message}\x1b[0m`);
 			}
@@ -455,7 +465,7 @@ function watchProject(targetDir, options = {}) {
 	}
 
 	console.log(`\n\x1b[36m⚡ ltbridge v${version}\x1b[0m \x1b[32mwatching for changes...\x1b[0m`);
-	syncModules(true);
+	syncModules({ initial: true });
 
 	const chokidar = require("chokidar");
 	const watcher = chokidar.watch(targetDir, {
@@ -645,7 +655,7 @@ async function interactiveSelect(targetDir) {
 	currentConfig.modules = finalSelection;
 	saveConfig(targetDir, currentConfig);
 
-	rebuildBundle(targetDir, currentConfig, { skipApi: true });
+	rebuildAndSyncState(targetDir, currentConfig, { skipApi: true });
 }
 
 function explainModule(targetDir, moduleName) {

@@ -1,3 +1,4 @@
 {
-	"internal": true
+  "internal": true,
+  "dependencies": []
 }

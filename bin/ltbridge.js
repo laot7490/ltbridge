@@ -12,12 +12,9 @@ program
 program
   .command('init')
   .description('Initialize LTBridge in the current directory and generate Master API stubs')
-  .option('--no-minify', 'Disable minification')
-  .option('--debug', 'Enable debug mode')
-  .option('--no-build', 'Skip initial bundle after init (api stubs still generated)')
-  .action(async (options) => {
+  .action(async () => {
     const cwd = process.cwd();
-    await initProject(cwd, options);
+    await initProject(cwd);
   });
 
 program

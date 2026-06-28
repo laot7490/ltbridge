@@ -59,17 +59,19 @@ When you run `init`, LTBridge creates a simple JSON config.
 
 | Setting | Default | Description |
 | --- | --- | --- |
-| `buildAsBundle`| `false` (non-interactive `init`) / prompt on interactive `init` | Combine everything into 3 clean files (`shared`, `client`, `server`). Set to `true` for bundle mode. |
-| `debug` | `false` | Turn this on if you want to see internal debug prints from the modules. |
-| `minify` | `true` | Enables code optimization and global variable randomization for maximum performance. |
-| `modules` | `[]` | List of installed modules. The tool manages this automatically! |
+| `buildAsBundle`| chosen at `init` | Combine everything into 3 clean files (`shared`, `client`, `server`). Set to `true` for bundle mode. |
+| `debug` | chosen at `init` | Turn this on if you want to see internal debug prints from the modules. |
+| `minify` | chosen at `init` | Enables code optimization and global variable randomization for maximum performance. |
+| `modules` | `[]` | List of installed modules. The tool manages this automatically. |
+
+When you run `init`, LTBridge walks you through bundle mode, minify, and debug options interactively.
 
 ## 🛠️ Commands
 
 | Command | Alias | Description |
 | --- | --- | --- |
 | `ltbridge` | - | **Interactive Menu**: Manage your modules visually. |
-| `ltbridge init` | - | Set up LTBridge in a new project (runs an initial build unless `--no-build`). |
+| `ltbridge init` | - | Set up LTBridge in a new project (interactive prompts, then initial build). |
 | `ltbridge api` | - | Regenerate `ltbridge/api.lua` IDE stubs only. |
 | `ltbridge build` | `sync` | Build the project manually (use `-w` for live auto-build). |
 | `ltbridge add <name>` | - | Add a specific module manually (e.g., `Target/*`). |
@@ -96,7 +98,6 @@ If you are developing modules, you can use special comments to tell the compiler
 - `--- @ltbridge export: CustomName` - Change the exported name of the function.
 - `--- @ltbridge alias: AnotherName` - Create an alternative name for the same function.
 - `--- @ltbridge global` - Expose the function directly to the root `LT` object (e.g., `LT.SetResource`).
-- `--- @ltbridge internal` - Marks the module as a "Ghost Module". It runs silently in the background when needed, but doesn't show up in the API or menus.
 
 ## 🙏 Credits
 

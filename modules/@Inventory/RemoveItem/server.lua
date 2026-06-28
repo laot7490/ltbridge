@@ -61,7 +61,7 @@ local adapters = {
 --- Remove item from player.
 --- @param source number Player source
 --- @param item string Item name
---- @param count number Item count
+--- @param count? number Item count (default: 1)
 --- @param slot? number Item slot (optional)
 --- @param metadata? table Item metadata (optional)
 --- @return boolean
@@ -70,5 +70,5 @@ function RemoveItem(source, item, count, slot, metadata)
     local adapter = adapters[name]
     if not adapter then adapter = adapters.fallback end
 
-    return adapter(source, item, count, slot, metadata)
+    return adapter(source, item, count or 1, slot, metadata)
 end

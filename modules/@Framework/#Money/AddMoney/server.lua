@@ -23,22 +23,17 @@ end
 
 --- Add money to player account.
 --- @param source number Player source
---- @param account string Money type (cash, bank, black_money, crypto etc.)
+--- @param account? string Money type (default: cash) (cash, bank, black_money, crypto etc.)
 --- @param amount number Amount to add
 --- @return boolean
 function AddMoney(source, account, amount)
-    if not source or not amount or amount <= 0 then
-        printf('error', 'source, amount and account are required and amount must be greater than 0')
-        return false
-    end
-    account = account or 'cash'
+    ltassert(source, 'source is required')
+    ltassert(amount, 'amount is required')
+    ltassert(amount > 0, 'amount must be greater than 0')
 
     local player = GetPlayer(source)
-    if not player then
-        printf('error', 'player not found')
-        return false
-    end
+    ltassert(player, 'player not found')
 
-    adapter(player, account, amount)
+    adapter(player, account or 'cash', amount)
     return true
 end

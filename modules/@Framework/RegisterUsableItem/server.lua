@@ -34,15 +34,8 @@ end
 --- @param name string Item name
 --- @param cb fun(source: number, item?: table)
 function RegisterUsableItem(name, cb)
-    if not name then
-        printf('error', 'name is required')
-        return
-    end
-
-    if not cb or type(cb) ~= 'function' then
-        printf('error', 'cb is required and must be a function')
-        return
-    end
-
+    ltassert(name, 'name is required')
+    ltassert(cb, 'cb is required')
+    ltassert(type(cb) == 'function', 'cb must be a function')
     return adapter(name, cb)
 end

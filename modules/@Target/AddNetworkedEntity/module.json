@@ -1,0 +1,7 @@
+{
+  "dependencies": [
+    "@Target",
+    "@Target/FixOptions",
+    "@Target/GetLargestDistance"
+  ]
+}

@@ -47,16 +47,10 @@ end
 --- @param source number Player source
 --- @return table<{name: string, label: string, grade: number, gradeName: string, gradeLabel: string, isBoss: boolean, onDuty: boolean}>|nil
 function GetPlayerJobData(source)
-    if not source then
-        printf('error', 'source is required')
-        return nil
-    end
+    ltassert(source, 'source is required')
 
     local player = GetPlayer(source)
-    if not player then
-        printf('error', 'player not found')
-        return nil
-    end
+    ltassert(player, 'player not found')
 
     return adapter(player) or nil
 end

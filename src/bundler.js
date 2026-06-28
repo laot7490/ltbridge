@@ -369,11 +369,19 @@ function rebuildBundle(targetDir, config, options = {}) {
 		const rel = relativePath.replace(/\\/g, "/");
 		const fullPath = path.join(ltModulesDir, rel);
 		fs.ensureDirSync(path.dirname(fullPath));
+		if (fs.existsSync(fullPath)) {
+			try {
+				if (fs.readFileSync(fullPath, "utf8") === content) {
+					writtenOutputs.add(rel);
+					return;
+				}
+			} catch {}
+		}
 		fs.writeFileSync(fullPath, content);
 		writtenOutputs.add(rel);
 	};
 
-	const readmeContent = `=== LTBridge Auto-Generated Modules ===\nThese files were automatically generated and/or minified by LTBridge.\nRepository: https://github.com/laot7490/ltbridge\nLast Build Time: ${new Date().toLocaleString()}\nLTBridge Version: ${version}\n`;
+	const readmeContent = `=== LTBridge Auto-Generated Modules ===\nThese files were automatically generated and/or minified by LTBridge.\nRepository: https://github.com/laot7490/ltbridge\nLTBridge Version: ${version}\n`;
 	writeOutput("README.txt", readmeContent);
 
 	const { injectManifest } = require("./manifestInjector");

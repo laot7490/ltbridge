@@ -18,25 +18,18 @@ local adapters = {
 
 local adapter = adapters[GetFramework()] or function(...)
     printf('error', 'No supported framework found.')
-    return 0
+    return nil
 end
 
 --- Returns players money on account.
 --- @param source number Player source
---- @param account string Money type (cash, bank, black_money, crypto etc.)
+--- @param account? string Money type (default: cash) (cash, bank, black_money, crypto etc.)
 --- @return number amount
 function GetMoney(source, account)
-    if not source then
-        printf('error', 'source is required')
-        return 0
-    end
-    account = account or 'cash'
+    ltassert(source, 'source is required')
 
     local player = GetPlayer(source)
-    if not player then
-        printf('error', 'player not found')
-        return 0
-    end
+    ltassert(player, 'player not found')
 
-    return adapter(player, account) or 0
+    return adapter(player, account or 'cash') or 0
 end

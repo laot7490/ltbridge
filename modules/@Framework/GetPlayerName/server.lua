@@ -20,22 +20,14 @@ end
 --- @return string? Firstname (or full name if `asFullName` is true)
 --- @return string? Lastname (or `nil` if `asFullName` is true)
 function GetPlayerName(source, asFullName)
-    if not source then
-        printf('error', 'source is required')
-        return nil
-    end
+    ltassert(source, 'source is required')
 
     local player = GetPlayer(source)
-    if not player then
-        printf('error', 'player not found')
-        return nil
-    end
+    ltassert(player, 'player not found')
 
     local firstname, lastname = adapter(player)
-    if not firstname or not lastname then
-        printf('error', 'player name or last name not found')
-        return nil
-    end
+    ltassert(firstname, 'player name not found')
+    ltassert(lastname, 'player last name not found')
 
     if asFullName then
         return firstname .. ' ' .. lastname

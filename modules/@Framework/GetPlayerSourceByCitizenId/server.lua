@@ -19,16 +19,10 @@ end
 ---@param citizenid string Player citizen id | identifier.
 ---@return number|nil
 function GetPlayerSourceByCitizenId(citizenid)
-    if not citizenid then
-        printf('error', 'citizenid is required')
-        return nil
-    end
+    ltassert(citizenid, 'citizenid is required')
 
     local player = GetPlayerByCitizenId(citizenid)
-    if not player then
-        printf('error', 'player not found')
-        return nil
-    end
+    ltassert(player, 'player not found')
 
     return adapter(player) or nil
 end

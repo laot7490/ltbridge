@@ -20,10 +20,7 @@ end
 --- @param source number Player source
 --- @return table|nil
 function GetPlayer(source)
-    if not source then
-        printf('error', 'source is required')
-        return nil
-    end
+    ltassert(source, 'source is required')
 
     return adapter(source)
 end

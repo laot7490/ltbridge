@@ -33,10 +33,7 @@ function AddThirst(source, value)
     end
 
     local player = GetPlayer(source)
-    if not player then
-        printf('error', 'player not found')
-        return false
-    end
+    ltassert(player, 'player not found')
 
     return adapter(source, player, value) or false
 end

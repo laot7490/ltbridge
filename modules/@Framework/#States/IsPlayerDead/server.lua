@@ -25,10 +25,7 @@ function IsPlayerDead(source)
     end
 
     local player = GetPlayer(source)
-    if not player then
-        printf('error', 'player not found')
-        return false
-    end
+    ltassert(player, 'player not found')
 
     return adapter(player) or false
 end

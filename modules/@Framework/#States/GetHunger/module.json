@@ -1,0 +1,8 @@
+{
+  "dependencies": [
+    "@Framework",
+    "@Framework/GetPlayer",
+    "@Framework/GetPlayerData",
+    "@Framework/GetPlayerMetadata"
+  ]
+}

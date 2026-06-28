@@ -1,0 +1,6 @@
+{
+  "dependencies": [
+    "@Inventory",
+    "@Inventory/GetItemCount"
+  ]
+}

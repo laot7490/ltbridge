@@ -1,0 +1,7 @@
+{
+  "dependencies": [
+    "@Framework/GetPlayerCitizenId",
+    "@Framework/GetPlayerPhoneNumber",
+    "@Phone"
+  ]
+}

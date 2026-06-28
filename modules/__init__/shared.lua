@@ -55,7 +55,7 @@ function printf(type, message, ...)
 end
 
 --- Asserts a condition and prints an error if it is false.
---- @param condition boolean Condition to assert
+--- @param condition any Condition to assert
 --- @param message string Message to print if condition is false
 --- @param ...? any Additional parameters
 --- @return boolean

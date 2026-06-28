@@ -2,6 +2,7 @@ const fs = require("fs-extra");
 const path = require("path");
 const { applyBuildConstants } = require("../src/buildConstants");
 const { transformLtassertStatements } = require("../src/transformLtassert");
+const { analyzeModuleDependencies } = require("../src/dependencyAnalyzer");
 
 const modulesDir = path.join(__dirname, "..", "modules");
 const version = require("../package.json").version;
@@ -366,6 +367,7 @@ function compile() {
 			db.modules[cleanName] = {
 				ns: modData.ns,
 				meta: modData.meta,
+				sourcePath: currentPath,
 				shared: modData.files.shared
 					? { code: modData.files.shared.code, stubs: modData.files.shared.stubs, types: modData.files.shared.types }
 					: null,
@@ -423,9 +425,53 @@ function compile() {
 		if (modData.server) processStubs(modData.server.stubs);
 	}
 
+	let moduleJsonCreated = 0;
+	let moduleJsonUpdated = 0;
+
+	for (const [modName, modData] of Object.entries(db.modules)) {
+		const deps = analyzeModuleDependencies(modName, {
+			exportMap: db.exportMap,
+			registry: db.registry,
+			modules: db.modules,
+		});
+
+		modData.dependencies = deps;
+		modData.meta = { ...modData.meta, dependencies: deps };
+
+		const sourcePath = modData.sourcePath;
+		if (sourcePath) {
+			const jsonPath = path.join(sourcePath, "module.json");
+			const jsonContent = { dependencies: deps };
+			if (modData.meta.internal) jsonContent.internal = true;
+
+			if (!fs.existsSync(jsonPath)) {
+				fs.writeFileSync(jsonPath, JSON.stringify(jsonContent, null, 2) + "\n");
+				moduleJsonCreated++;
+			} else {
+				try {
+					const existing = JSON.parse(fs.readFileSync(jsonPath, "utf8"));
+					const merged = { ...existing, dependencies: deps };
+					const next = JSON.stringify(merged, null, 2) + "\n";
+					const prev = fs.readFileSync(jsonPath, "utf8");
+					if (prev !== next) {
+						fs.writeFileSync(jsonPath, next);
+						moduleJsonUpdated++;
+					}
+				} catch {
+					fs.writeFileSync(jsonPath, JSON.stringify(jsonContent, null, 2) + "\n");
+					moduleJsonUpdated++;
+				}
+			}
+		}
+
+		delete modData.sourcePath;
+	}
+
 	const outPath = path.join(distDir, "modules.dat");
 	fs.writeFileSync(outPath, JSON.stringify(db));
 	console.log(`[LTBridge] Compiled ${Object.keys(db.modules).length} modules to ${outPath}`);
+	if (moduleJsonCreated > 0) console.log(`[LTBridge] Created ${moduleJsonCreated} module.json files`);
+	if (moduleJsonUpdated > 0) console.log(`[LTBridge] Updated ${moduleJsonUpdated} module.json files`);
 }
 
 compile();

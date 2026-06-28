@@ -22,7 +22,7 @@ local adapters = {
 --- Check if player can carry item.
 --- @param source number Player source
 --- @param item string Item name
---- @param count number Item count
+--- @param count? number Item count (default: 1)
 --- @return boolean
 function CanCarryItem(source, item, count)
     local name = GetInventoryResource()
@@ -31,5 +31,5 @@ function CanCarryItem(source, item, count)
         return false
     end
 
-    return adapters[name](source, item, count)
+    return adapters[name](source, item, count or 1)
 end

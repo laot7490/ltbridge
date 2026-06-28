@@ -20,10 +20,7 @@ end
 --- @param citizenid string Player identifier|citizenid
 --- @return table|nil Player or nil
 function GetPlayerByCitizenId(citizenid)
-    if not citizenid then
-        printf('error', 'citizenid is required')
-        return nil
-    end
+    ltassert(citizenid, 'citizenid is required')
 
     return adapter(citizenid) or nil
 end
