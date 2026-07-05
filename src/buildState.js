@@ -17,7 +17,7 @@ function computeBuildFingerprint(config, cliVersion, foundCalls) {
 	const payload = {
 		cliVersion,
 		modules: [...(config.modules || [])].sort(),
-		minify: config.minify !== false,
+		minify: config.minify === true,
 		buildAsBundle: config.buildAsBundle === true,
 		debug: config.debug === true,
 		scanSignature: computeScanSignature(foundCalls),

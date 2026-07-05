@@ -78,7 +78,7 @@ function rebuildBundle(targetDir, config, options = {}) {
 
 	const startTime = Date.now();
 	const explicitModules = config.modules || [];
-	const doMinify = config.minify !== false;
+	const doMinify = config.minify === true;
 	const buildAsIndividual = config.buildAsBundle !== true;
 
 	let loadSequence = [];
@@ -400,7 +400,35 @@ function rebuildBundle(targetDir, config, options = {}) {
 
 		const generateLoader = (typeStr, items) => {
 			if (items.length === 0) return "";
-			return `-- LTBridge Auto-Generated ${typeStr} Loader\nlocal loadSequence = {\n${items.join(",\n")}\n}\nfor _, modPathSuffix in ipairs(loadSequence) do\n    local modPath = "ltbridge/modules/imports/" .. modPathSuffix\n    local chunk = LoadResourceFile(GetCurrentResourceName(), modPath)\n    if chunk then\n        local fn, err = load(chunk, "@@" .. GetCurrentResourceName() .. "/" .. modPath)\n        if not fn then\n            print("^6[LTBridge ${version}] ^1ERROR: Syntax error in module: " .. modPath .. "\\n" .. tostring(err) .. "^7")\n        else\n            fn()\n        end\n    else\n        print("^6[LTBridge ${version}] ^1ERROR: Module file not found: " .. modPathSuffix .. "^7")\n    end\nend\n`;
+			return `-- LTBridge Auto-Generated ${typeStr} Loader
+
+local RESOURCE <const> = GetCurrentResourceName()
+local BASE_PATH <const> = "ltbridge/modules/imports/"
+
+local modules = {
+${items.join(",\n")}
+}
+
+local function loadModule(path)
+    local fullPath = BASE_PATH .. path
+    local content = LoadResourceFile(RESOURCE, fullPath)
+    if not content then
+        return print(("^6[LTBridge ${version}] ^1ERROR: Module file not found: %s^7"):format(path))
+    end
+    local chunk, err = load(content, ("@@%s/%s"):format(RESOURCE, fullPath))
+    if not chunk then
+        return print(("^6[LTBridge ${version}] ^1ERROR: Syntax error in module: %s\\n%s^7"):format(fullPath, err))
+    end
+    local ok, runtimeErr = pcall(chunk)
+    if not ok then
+        print(("^6[LTBridge ${version}] ^1ERROR: Runtime error in module: %s\\n%s^7"):format(fullPath, runtimeErr))
+    end
+end
+
+for i = 1, #modules do
+    loadModule(modules[i])
+end
+`;
 		};
 
 		if (hasShared) writeOutput("modules/shared.lua", generateLoader("Shared", loaders.shared));

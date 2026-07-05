@@ -49,7 +49,7 @@ async function initProject(targetDir) {
 				{ title: "Enabled (Compact production code)", value: true },
 				{ title: "Disabled (Readable development code)", value: false },
 			],
-			initial: 0,
+			initial: 1,
 		},
 		{
 			type: "select",
@@ -64,7 +64,7 @@ async function initProject(targetDir) {
 	]);
 
 	const doBundle = response.buildMode === true;
-	const doMinify = response.minify !== false;
+	const doMinify = response.minify === true;
 	const doDebug = response.debug === true;
 
 	const initialConfig = {
