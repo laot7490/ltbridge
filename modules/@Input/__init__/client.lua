@@ -19,8 +19,8 @@ end
 --- @ltbridge params:list:name
 --- @ltbridge export: SetResource
 function SetInputResource(name)
-    if not name then return end
-    if not list[name] then return printf('error', 'Input resource ^3%s^7 not found.', name) end
+    ltassert(name and type(name) == 'string', 'name is required and must be a valid string')
+    ltassert(list[name], 'Input resource %s not found.', name)
     resourceName = name
 end
 
@@ -303,8 +303,7 @@ local adapters = {
 --- @ltbridge export: Open
 function OpenInput(header, data, isQB, submitText)
     local resource = GetInputResource()
-    if not resource then return end
+    ltassert(resource, 'input resource not found.')
     local adapter = adapters[resource]
-    if not adapter then printf('error', 'Input resource not found. This function will return nil.') return end
     return adapter(header, data, isQB, submitText)
 end

@@ -75,10 +75,7 @@ local adapters = {
 --- @return table|nil {name, label, count, slot, weight, metadata, stack, description}
 function GetItemBySlot(source, slot)
     local name = GetInventoryResource()
-    if not adapters[name] then
-        printf('error', 'Inventory resource not found. This function will return nil.')
-        return nil
-    end
+    ltassert(name, 'inventory resource not found. this function will return nil.')
 
     return adapters[name](source, slot)
 end

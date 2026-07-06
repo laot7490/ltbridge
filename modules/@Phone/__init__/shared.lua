@@ -2,7 +2,7 @@ local resourceName = nil
 
 local list = {
     ['lb-phone'] = {},
-    ['qb-phone'] = { providers = {'lb-phone', 'gksphone', 'okokPhone', 'qs-smartphone-pro', 'yseries', 'cylex_phone'} },
+    ['qb-phone'] = { providers = { 'lb-phone', 'gksphone', 'okokPhone', 'qs-smartphone-pro', 'yseries', 'cylex_phone' } },
     ['okokPhone'] = {},
     ['qs-smartphone-pro'] = {},
     ['gksphone'] = {},
@@ -16,13 +16,13 @@ function GetPhoneResource()
     return resourceName
 end
 
---- Force set phone resource. 
+--- Force set phone resource.
 --- Useful for config assignment.
 --- @ltbridge params:list:name
 --- @ltbridge export: SetResource
 function SetPhoneResource(name)
-    if not name then return end
-    if not list[name] then return printf('error', 'Phone resource ^3%s^7 not found.', name) end
+    ltassert(name and type(name) == 'string', 'name is required and must be a valid string')
+    ltassert(list[name], 'Phone resource %s not found.', name)
     resourceName = name
 end
 

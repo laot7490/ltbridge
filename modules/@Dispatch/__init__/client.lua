@@ -17,13 +17,13 @@ function GetDispatchResource()
     return resourceName
 end
 
---- Force set dispatch resource. 
+--- Force set dispatch resource.
 --- Useful for config assignment.
 --- @ltbridge params:list:name
 --- @ltbridge export: SetResource
 function SetDispatchResource(name)
-    if not name then return end
-    if not list[name] then return printf('error', 'Dispatch resource ^3%s^7 not found.', name) end
+    ltassert(name and type(name) == 'string', 'name is required and must be a valid string')
+    ltassert(list[name], 'Dispatch resource %s not found.', name)
     resourceName = name
 end
 
@@ -83,7 +83,7 @@ local adapters = {
         local alertData = {
             title = data.message,
             code = data.code or '10-80',
-            priority = 'Priority '.. (data.priority or 2),
+            priority = 'Priority ' .. (data.priority or 2),
             coords = data.coords or GetEntityCoords(PlayerPedId()),
             showLocation = true,
             showGender = false,
@@ -93,7 +93,7 @@ local adapters = {
                 sprite = data.blipData.sprite or 1,
                 scale = data.blipData.scale or 0.8,
             },
-            jobs = data.jobs or {'police'},
+            jobs = data.jobs or { 'police' },
         }
         exports.tk_dispatch:addCall(alertData)
     end,
@@ -144,8 +144,8 @@ local adapters = {
             type = data.code or '10-80',
             title = data.code or '10-80',
             description = data.message or "No message provided",
-            location = {data.coords.x, data.coords.y, data.coords.z} or {fallbackCoords.x, fallbackCoords.y, fallbackCoords.z},
-            coords = {data.coords.x, data.coords.y, data.coords.z} or {fallbackCoords.x, fallbackCoords.y, fallbackCoords.z},
+            location = { data.coords.x, data.coords.y, data.coords.z } or { fallbackCoords.x, fallbackCoords.y, fallbackCoords.z },
+            coords = { data.coords.x, data.coords.y, data.coords.z } or { fallbackCoords.x, fallbackCoords.y, fallbackCoords.z },
         }
         exports.wasabi_mdt:CreateDispatch(alertData)
     end,
@@ -156,7 +156,7 @@ local adapters = {
                 displayCode = data.code or '211',
                 description = data.message or "Alert",
                 isImportant = 0,
-                recipientList = data.jobs or {'police'},
+                recipientList = data.jobs or { 'police' },
                 length = data.time or '10000',
                 infoM = data.icon or 'fas fa-question',
                 info = data.message or "Alert"
@@ -172,8 +172,8 @@ local adapters = {
 --- @ltbridge export: Send
 function SendDispatch(data)
     local resource = GetDispatchResource()
-    if not resource then return end
+    ltassert(resource, 'dispatch resource not found.')
     local adapter = adapters[resource]
-    if not adapter then return end
+    ltassert(adapter, 'adapter not found.')
     adapter(data)
 end

@@ -17,13 +17,13 @@ function GetMenuResource()
     return resourceName
 end
 
---- Force set menu resource. 
+--- Force set menu resource.
 --- Useful for config assignment.
 --- @ltbridge params:list:name
 --- @ltbridge export: SetResource
 function SetMenuResource(name)
-    if not name then return end
-    if not list[name] then return printf('error', 'Menu resource ^3%s^7 not found.', name) end
+    ltassert(name and type(name) == 'string', 'name is required and must be a valid string')
+    ltassert(list[name], 'Menu resource %s not found.', name)
     resourceName = name
     export = exports[name]
 end
@@ -91,8 +91,8 @@ local function convertOXtoQB(id, menu)
 
         if v.onSelect then
             button.params = {
-                event = __LT_RESOURCE_NAME..":client:@Menu:Callback",
-                args = {id = id, selected = i, args = v.args, onSelect = v.onSelect},
+                event = __LT_RESOURCE_NAME .. ":client:@Menu:Callback",
+                args = { id = id, selected = i, args = v.args, onSelect = v.onSelect },
             }
         else
             button.params = {} -- should fix nil errors when no onSelect is provided
@@ -147,7 +147,7 @@ local function runCheckForImageIcon(icon)
         return true
     end
 
-    local extensions = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".svg", ".webp", ".ico"}
+    local extensions = { ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".svg", ".webp", ".ico" }
     for _, ext in pairs(extensions) do
         if iconStr:match(ext .. "$") then
             return true
@@ -269,9 +269,8 @@ local adapters = {
 --- @ltbridge export: Open
 function OpenMenu(id, data, isQB)
     local resource = GetMenuResource()
-    if not resource then return end
+    ltassert(resource, 'menu resource not found.')
     local adapter = adapters[resource]
-    if not adapter then printf('error', 'Menu resource not found. This function will return nil.') return end
     data.id = id
     menus[id] = adapter(id, data, isQB)
     return menus[id]
@@ -280,7 +279,7 @@ end
 --- Event to handle callback from menu selection.
 --- @param _args table The arguments passed to the callback.
 --- @return nil
-RegisterNetEvent(__LT_RESOURCE_NAME..":client:@Menu:Callback", function(_args)
+RegisterNetEvent(__LT_RESOURCE_NAME .. ":client:@Menu:Callback", function(_args)
     local id = _args.id
     local onSelect = _args.onSelect
     local args = _args.args

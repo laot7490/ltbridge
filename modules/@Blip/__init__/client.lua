@@ -38,14 +38,8 @@ function CreateBlip(data)
     ltassert(data ~= nil, 'data is required')
     ltassert(type(data) == 'table', 'data must be a table')
     ltassert(data.label and type(data.label) == 'string', 'label is required and must be a valid string')
-
-    if data.coords and data.entity then
-        printf('error', 'coords and entity cannot be used together')
-        return false
-    elseif not data.coords and not data.entity then
-        printf('error', 'coords or entity is required')
-        return false
-    end
+    ltassert(data.coords and data.entity, 'coords and entity cannot be used together')
+    ltassert(not data.coords and not data.entity, 'coords or entity is required')
 
     self.type = data.coords and 'coord' or 'entity'
 
@@ -105,7 +99,8 @@ function CreateBlip(data)
     AddTextComponentString(data.label)
     EndTextCommandSetBlipName(self.blip)
 
-    blips[self.blip] = self
+    self.index = #blips + 1
+    blips[self.index] = self
 
     return self
 end
@@ -120,8 +115,11 @@ end
 --- Deletes all blips.
 --- @ltbridge export: DeleteAll
 function DeleteAllBlips()
-    for _, blip in pairs(blips) do
-        blip:delete()
+    for i = 1, #blips do
+        local blip = blips[i]
+        if blip then
+            blip:delete()
+        end
     end
 end
 
@@ -133,8 +131,7 @@ end
 function Blip:delete()
     if DoesBlipExist(self.blip) then
         RemoveBlip(self.blip)
-        blips[self.blip] = nil
-        self.blip = nil
+        blips[self.index] = nil
     end
 end
 
@@ -142,16 +139,9 @@ end
 --- @param coords vector3 Coordinates to set
 --- @return boolean
 function Blip:setCoords(coords)
-    if not validateCoords(coords) then
-        printf('error', 'coords must be a vector3')
-        return false
-    end
-    if self.type == 'coord' then
-        SetBlipCoords(self.blip, coords.x, coords.y, coords.z)
-    else
-        printf('error', 'blip is not a coord blip')
-        return false
-    end
+    ltassert(validateCoords(coords), 'coords must be a vector3')
+    ltassert(self.type == 'coord', 'blip is not a coord blip')
+    SetBlipCoords(self.blip, coords.x, coords.y, coords.z)
     return true
 end
 
@@ -159,10 +149,7 @@ end
 --- @param color number Color to set
 --- @return boolean
 function Blip:setColor(color)
-    if type(color) ~= 'number' then
-        printf('error', 'color must be a number')
-        return false
-    end
+    ltassert(type(color) == 'number', 'color must be a number')
     SetBlipColour(self.blip, color)
     return true
 end
@@ -171,10 +158,6 @@ end
 -- CLEANUP
 -- ════════════════════════════════════════════════════════════════════════════════════════════
 
-AddEventHandler('onResourceStop', function(resource)
-    if resource ~= __LT_RESOURCE_NAME then return end
-
-    for _, blip in pairs(blips) do
-        blip:delete()
-    end
+OnResourceStop(function()
+    DeleteAllBlips()
 end)

@@ -26,10 +26,7 @@ local adapters = {
 --- @return boolean
 function CanCarryItem(source, item, count)
     local name = GetInventoryResource()
-    if not adapters[name] then
-        printf('error', 'Inventory resource not found. This function will return false.')
-        return false
-    end
+    ltassert(name, 'inventory resource not found. this function will return false.')
 
     return adapters[name](source, item, count or 1)
 end

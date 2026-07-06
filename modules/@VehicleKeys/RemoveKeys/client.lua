@@ -37,16 +37,14 @@ local adapters = {
 --- @ltbridge export: Remove
 function RemoveKeys(vehicle, plate)
     local name = GetKeysResource()
-    if not name then return false end
-    if not vehicle or not DoesEntityExist(vehicle) then return false end
+    ltassert(name, 'vehiclekeys resource not found.')
+    ltassert(vehicle and DoesEntityExist(vehicle), 'vehicle not found.')
 
     if not plate then
         plate = GetVehicleNumberPlateText(vehicle)
     end
-    
-    local adapter = adapters[name]
-    if not adapter then return false end
 
+    local adapter = adapters[name]
     adapter(vehicle, plate)
     return true
 end

@@ -14,8 +14,7 @@ local function extractSemver(s)
     return s:match('%d+%.%d+%.%d+')
 end
 
-local function printVersionStatus(resourceName, msgs, currentShown, remoteShown, needsUpdate, downloadLink,
-    sendUpToDate)
+local function printVersionStatus(resourceName, msgs, currentShown, remoteShown, needsUpdate, downloadLink, sendUpToDate)
     if not needsUpdate then
         if sendUpToDate then
             print(format(msgs.upToDate, resourceName, currentShown))
@@ -59,9 +58,7 @@ end
 function CheckVersion(data, messages)
     local resourceName <const> = (data and data.resourceName) or __LT_RESOURCE_NAME
     local currentVersion <const> = GetResourceMetadata(resourceName, 'version', 0)
-    if not currentVersion then
-        return printf('warning', 'No version found for resource %s.', resourceName)
-    end
+    ltassert(currentVersion, 'no version found for resource %s.', resourceName)
 
     local msgs <const> = resolvePrintFormats(messages)
     local sendUpToDate <const> = data and data.sendUpToDate == true
@@ -93,9 +90,7 @@ function CheckVersion(data, messages)
 
     local fileType = (data and data.fileType) or 'JSON'
     local url = data and data.url
-    if not url then
-        return printf('warning', 'No URL provided for resource version check %s.', resourceName)
-    end
+    ltassert(url, 'no URL provided for resource version check %s.', resourceName)
     local downloadURL <const> = (data and data.downloadUrl) or ''
 
     PerformHttpRequest(url, function(statusCode, body, _)

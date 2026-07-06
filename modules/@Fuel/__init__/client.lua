@@ -23,14 +23,13 @@ function GetFuelResource()
     return resourceName
 end
 
---- Force set fuel resource. 
+--- Force set fuel resource.
 --- Useful for config assignment.
 --- @ltbridge params:list:name
 --- @ltbridge export: SetResource
 function SetFuelResource(name)
-    if not name then return end
-    if not list[name] then return printf('error', 'Fuel resource ^3%s^7 not found.', name) end
-    -- set export and name
+    ltassert(name and type(name) == 'string', 'name is required and must be a valid string')
+    ltassert(list[name], 'Fuel resource %s not found.', name)
     Fuel = exports[name]
     resourceName = name
 end

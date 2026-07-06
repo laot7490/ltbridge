@@ -29,7 +29,7 @@ local adapters = {
 --- @param metadata any New metadata
 function SetItemMetadata(source, item, slot, metadata)
     local name = GetInventoryResource()
-    if not adapters[name] then return 0 end
+    ltassert(name, 'inventory resource not found. this function will return false.')
 
     return adapters[name](source, item, slot, metadata)
 end

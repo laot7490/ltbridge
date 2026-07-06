@@ -15,13 +15,13 @@ function GetProgressResource()
     return resourceName
 end
 
---- Force set progress bar resource. 
+--- Force set progress bar resource.
 --- Useful for config assignment.
 --- @ltbridge params:list:name
 --- @ltbridge export: SetResource
 function SetProgressResource(name)
-    if not name then return end
-    if not list[name] then return printf('error', 'Progress resource ^3%s^7 not found.', name) end
+    ltassert(name and type(name) == 'string', 'name is required and must be a valid string')
+    ltassert(list[name], 'Progress resource %s not found.', name)
     resourceName = name
 end
 
@@ -35,7 +35,7 @@ end
 -- ════════════════════════════════════════════════════════════════════════════════════════════
 
 local function convertQBtoOX(options)
-    if not options then return options end
+    ltassert(options, 'options is required.')
     local prop1 = options.prop or {}
     local prop2 = options.propTwo or {}
     local props = {
@@ -74,7 +74,7 @@ local function convertQBtoOX(options)
 end
 
 local function convertOXtoQB(options)
-    if not options then return options end
+    ltassert(options, 'options is required.')
     local prop1 = (type(options.prop) == 'table' and options.prop[1]) or options.prop or {}
     local prop2 = (type(options.prop) == 'table' and options.prop[2]) or {}
     return {
@@ -110,7 +110,7 @@ local function convertOXtoQB(options)
 end
 
 local function convertQBtoLation(options)
-    if not options then return options end
+    ltassert(options, 'options is required.')
     local prop1 = options.prop or {}
     local prop2 = options.propTwo or {}
     local props = {
@@ -152,7 +152,7 @@ local function convertQBtoLation(options)
 end
 
 local function convertOXtoLation(options)
-    if not options then return options end
+    ltassert(options, 'options is required.')
     local prop1 = options.prop or {}
     local prop2 = options.propTwo or {}
     return {
@@ -216,7 +216,7 @@ local adapters = {
         end
         local prom = promise.new()
         exports['progressbar']:Progress(options, function(cancelled)
-            if cb then cb( not cancelled) end
+            if cb then cb(not cancelled) end
             prom:resolve(not cancelled)
         end)
         return Citizen.Await(prom)
@@ -254,9 +254,7 @@ local adapters = {
 --- @ltbridge export: Open
 function OpenProgress(options, cb, isQB)
     local name = GetProgressResource()
-    local adapter = name and adapters[name]
-    if adapter then
-        return adapter(options, cb, isQB)
-    end
-    return false
+    ltassert(name, 'progress resource not found.')
+    local adapter = adapters[name]
+    return adapter(options, cb, isQB)
 end

@@ -1,7 +1,7 @@
 local resourceName = nil
 
 local list = {
-    ['qb-vehiclekeys'] = { providers = {'qbx_vehiclekeys'} },
+    ['qb-vehiclekeys'] = { providers = { 'qbx_vehiclekeys' } },
     ['qbx_vehiclekeys'] = {},
     ['qs-vehiclekeys'] = {},
     ['mk_vehiclekeys'] = {},
@@ -24,8 +24,8 @@ end
 --- @ltbridge params:list:name
 --- @ltbridge export: SetResource
 function SetKeysResource(name)
-    if not name then return end
-    if not list[name] then return printf('error', 'Vehiclekeys resource ^3%s^7 not found.', name) end
+    ltassert(name and type(name) == 'string', 'name is required and must be a valid string')
+    ltassert(list[name], 'Vehiclekeys resource %s not found.', name)
     resourceName = name
 end
 

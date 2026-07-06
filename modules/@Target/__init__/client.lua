@@ -9,7 +9,7 @@ local function detectTarget()
     elseif GetResourceState('qb-target') == 'started' then
         LT_TARGET_NAME = 'qb-target'
     end
-    if not LT_TARGET_NAME then return printf('error', 'No target resource found. Please ensure you have either ox_target or qb-target loaded.') end
+    ltassert(LT_TARGET_NAME, 'No target resource found. Please ensure you have either ox_target or qb-target loaded.')
     Target = exports[LT_TARGET_NAME]
 end
 
@@ -23,13 +23,13 @@ end
 --- WARNING: Do not use this. This is a internal function.
 --- @ltbridge internal
 function AddZone(name)
-    createdZones[#createdZones+1] = name
+    createdZones[#createdZones + 1] = name
 end
 
 --- Remove a target zone.
 --- @param name string
 function RemoveZone(name)
-    if not name then return end
+    ltassert(name and type(name) == 'string', 'name is required and must be a valid string')
     for i, zoneName in ipairs(createdZones) do
         if zoneName == name then
             if LT_TARGET_NAME == 'ox_target' then

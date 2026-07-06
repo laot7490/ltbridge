@@ -22,8 +22,8 @@ end
 --- @ltbridge params:list:name
 --- @ltbridge export: SetResource
 function SetInventoryResource(name)
-    if not name then return end
-    if not list[name] then return printf('error', 'Inventory resource ^3%s^7 not found.', name) end
+    ltassert(name and type(name) == 'string', 'name is required and must be a valid string')
+    ltassert(list[name], 'Inventory resource %s not found.', name)
     Inventory = exports[name]
     resourceName = name
 end

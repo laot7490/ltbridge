@@ -1,11 +1,11 @@
 local function parseVersion(versionString)
     if not versionString then return nil end
-    
+
     local parts = {}
     for num in string.gmatch(versionString, "(%d+)") do
         table.insert(parts, tonumber(num))
     end
-    
+
     return {
         major = parts[1] or 0,
         minor = parts[2] or 0,
@@ -18,18 +18,18 @@ end
 local function compareVersions(v1, v2)
     local ver1 = parseVersion(v1)
     local ver2 = parseVersion(v2)
-    
+
     if not ver1 or not ver2 then return 0 end
-    
+
     if ver1.major > ver2.major then return 1 end
     if ver1.major < ver2.major then return -1 end
-    
+
     if ver1.minor > ver2.minor then return 1 end
     if ver1.minor < ver2.minor then return -1 end
-    
+
     if ver1.patch > ver2.patch then return 1 end
     if ver1.patch < ver2.patch then return -1 end
-    
+
     return 0
 end
 
@@ -43,13 +43,14 @@ end
 --- @param minVersion string Minimum required version (e.g. "1.0.0")
 --- @return boolean
 function CheckDependency(resourceName, minVersion)
-    if not resourceName or not minVersion then return false end
+    ltassert(resourceName and type(resourceName) == 'string', 'resourceName is required and must be a valid string')
+    ltassert(minVersion and type(minVersion) == 'string', 'minVersion is required and must be a valid string')
 
     local isStarted = GetResourceState(resourceName) ~= 'missing'
-    if not isStarted then return false end
+    ltassert(isStarted, 'resource %s is not started.', resourceName)
 
     local currentVersion = GetResourceMetadata(resourceName, 'version', 0)
-    if not currentVersion then return false end
+    ltassert(currentVersion, 'resource %s does not have a version metadata.', resourceName)
 
     local comparison = compareVersions(currentVersion, minVersion)
     if comparison < 0 then

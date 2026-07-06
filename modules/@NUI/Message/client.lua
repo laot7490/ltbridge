@@ -31,12 +31,12 @@ end
 --- @param data? table Optional data payload
 --- @ltbridge export: Message
 function MessageNUI(action, data)
-    if action == nil then return printf('error', 'action is required.') end
+    ltassert(action, 'action is required.')
     local payload = {}
     if data ~= nil then
-        if type(data) ~= 'table' then return printf('error', 'data must be a table, got %s instead.', type(data)) end
+        ltassert(type(data) == 'table', 'data must be a table, got %s instead.', type(data))
         local success, error = checkTable(data)
-        if not success then return printf('error', '%s', error) end
+        ltassert(success, '%s', error)
         for k, v in pairs(data) do
             payload[k] = v
         end

@@ -56,7 +56,7 @@ local adapters = {
 --- @return string|nil
 function GetItemImage(item)
     local name = GetInventoryResource()
-    if not adapters[name] then return end
+    ltassert(name, 'inventory resource not found. this function will return nil.')
 
     item = stripPng(item)
 

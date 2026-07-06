@@ -54,16 +54,17 @@ function printf(type, message, ...)
     )
 end
 
---- Asserts a condition and prints an error if it is false.
---- @param condition any Condition to assert
---- @param message string Message to print if condition is false
---- @param ...? any Additional parameters
---- @return boolean
+--- Asserts a condition and prints an error if value is false or nil.
+--- @generic T
+--- @param v T? Condition to assert
+--- @param message string Message to print if value is false or nil
+--- @param ...? any Format parameters for the message
+--- @return T|false
 --- @ltbridge internal
-function ltassert(condition, message, ...)
-    if not condition then
+function ltassert(v, message, ...)
+    if not v then
         printf('error', message, ...)
         return false
     end
-    return true
+    return v
 end

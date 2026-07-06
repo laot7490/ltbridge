@@ -15,13 +15,13 @@ function GetAlertResource()
     return resourceName
 end
 
---- Force set alert resource. 
+--- Force set alert resource.
 --- Useful for config assignment.
 --- @ltbridge params:list:name
 --- @ltbridge export: SetResource
 function SetAlertResource(name)
-    if not name then return end
-    if not list[name] then return printf('error', 'Alert resource ^3%s^7 not found.', name) end
+    ltassert(name and type(name) == 'string', 'name is required and must be a valid string')
+    ltassert(list[name], 'Alert resource %s not found.', name)
     resourceName = name
     Alert = exports[name]
 end
@@ -61,8 +61,8 @@ local adapters = {
 --- @return 'cancel'|'confirm'|nil
 --- @ltbridge export: Send
 function SendAlert(data)
-    if not resourceName then return end
-    local adapter = adapters[resourceName]
-    if not adapter then printf('error', 'Alert resource not found. This function will return nil.') return end
+    local resource = GetAlertResource()
+    ltassert(resource, 'alert resource not found.')
+    local adapter = adapters[resource]
     return adapter(data)
 end

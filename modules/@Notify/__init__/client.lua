@@ -22,13 +22,13 @@ function GetNotifyResource()
     return resourceName
 end
 
---- Force set notify resource. 
+--- Force set notify resource.
 --- Useful for config assignment.
 --- @ltbridge params:list:name
 --- @ltbridge export: SetResource
 function SetNotifyResource(name)
-    if not name then return end
-    if not list[name] then return printf('error', 'Notify resource ^3%s^7 not found.', name) end
+    ltassert(name and type(name) == 'string', 'name is required and must be a valid string')
+    ltassert(list[name], 'Notify resource %s not found.', name)
     resourceName = name
     export = exports[name]
 end
@@ -109,12 +109,11 @@ local adapters = {
 --- @ltbridge export: Send
 function SendNotify(title, message, variant, length)
     local name = GetNotifyResource()
-    if not name then return end
+    ltassert(name, 'notify resource not found.')
     local adapter = adapters[name]
-    if not adapter then return end
     adapter(title, message, (length or 3500), (variant or 'info'))
 end
 
-RegisterNetEvent(__LT_RESOURCE_NAME..':client:@Notify:Send', function(title, message, variant, length)
+RegisterNetEvent(__LT_RESOURCE_NAME .. ':client:@Notify:Send', function(title, message, variant, length)
     SendNotify(title, message, variant, length)
 end)

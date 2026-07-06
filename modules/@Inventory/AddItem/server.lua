@@ -73,7 +73,6 @@ local adapters = {
 --- @return boolean
 function AddItem(source, item, count, slot, metadata)
     local name = GetInventoryResource()
-
     local adapter = adapters[name]
     if not adapter then adapter = adapters.fallback end
 
