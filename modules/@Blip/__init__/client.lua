@@ -38,8 +38,8 @@ function CreateBlip(data)
     ltassert(data ~= nil, 'data is required')
     ltassert(type(data) == 'table', 'data must be a table')
     ltassert(data.label and type(data.label) == 'string', 'label is required and must be a valid string')
-    ltassert(data.coords and data.entity, 'coords and entity cannot be used together')
-    ltassert(not data.coords and not data.entity, 'coords or entity is required')
+    ltassert(not (data.coords and data.entity), 'coords and entity cannot be used together')
+    ltassert(data.coords or data.entity, 'coords or entity is required')
 
     self.type = data.coords and 'coord' or 'entity'
 
