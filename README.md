@@ -5,10 +5,11 @@
 [![GitHub Release Date](https://img.shields.io/github/release-date/laot7490/ltbridge?style=flat&colorA=18181B&colorB=a855f7)](https://github.com/laot7490/ltbridge/releases)
 [![GitHub contributors](https://img.shields.io/github/contributors/laot7490/ltbridge?style=flat&colorA=18181B&colorB=f59e0b)](https://github.com/laot7490/ltbridge/graphs/contributors)
 [![GitHub License](https://img.shields.io/github/license/laot7490/ltbridge?style=flat&colorA=18181B&colorB=white)](https://github.com/laot7490/ltbridge/blob/main/LICENSE)
+[![Documentation](https://img.shields.io/badge/docs-GitBook-3884FF?style=flat&logo=gitbook&logoColor=white&colorA=18181B)](https://laot7490.gitbook.io/ltbridge)
 
 A next-generation **FiveM Script Bridge & Module Manager** designed to be incredibly fast, clean, and bloat-free.
 
-Unlike traditional monolithic libraries that force every script to load hundreds of unused functions into memory, **LTBridge** acts as a smart build tool. It lets you maintain a central repository of your favorite utilities (like Inventory, Framework, Notify) and compiles **only the exact code you actually use** right into your FiveM resource. 
+Unlike traditional monolithic libraries that force every script to load hundreds of unused functions into memory, **LTBridge** acts as a smart build tool. It lets you maintain a central repository of your favorite utilities (like Inventory, Framework, Notify) and compiles **only the exact code you actually use** right into your FiveM resource.
 
 By eliminating slow cross-resource exports and memory bloat, LTBridge helps you build highly independent, lightning-fast scripts with a perfect development experience.
 
@@ -53,6 +54,8 @@ npx @laot/bridge [command]
    local name, lastname = LT.Framework.GetPlayerName()
    ```
 
+*For the full walkthrough, see [Quick Start on GitBook](https://laot7490.gitbook.io/ltbridge/getting-started/quick-start).*
+
 ## ⚙️ Configuration (`ltbridge/ltbridge.config.json`)
 
 When you run `init`, LTBridge creates a simple JSON config.
@@ -67,6 +70,8 @@ When you run `init`, LTBridge creates a simple JSON config.
 When you run `init`, LTBridge walks you through bundle mode, minify, and debug options interactively.
 
 ## 🛠️ Commands
+
+Full command reference with examples: [CLI Commands on GitBook](https://laot7490.gitbook.io/ltbridge/cli/commands).
 
 | Command | Alias | Description |
 | --- | --- | --- |
@@ -108,3 +113,4 @@ A huge thanks to the **[community_bridge](https://github.com/TheOrderFivem)** pr
 > ```json
 > "Lua.workspace.ignoreDir": ["**/ltbridge/modules/**"]
 > ```
+> See also: [IDE Setup on GitBook](https://laot7490.gitbook.io/ltbridge/getting-started/ide-setup) for autocomplete and workspace configuration.
