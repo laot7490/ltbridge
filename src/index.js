@@ -6,10 +6,45 @@ const { resolveDependencies } = require("./moduleResolver");
 const { getModuleRegistry, getModuleData } = require("./registry");
 const { pickExportModule } = require("./resolveExport");
 const { getVisibleModules, buildModuleGroups, getDependencySets, getFilteredSortedMods } = require("./moduleListUi");
-const { computeBuildFingerprint, loadBuildState, saveBuildState } = require("./buildState");
+const { computeBuildFingerprint } = require("./buildState");
 const prompts = require("prompts");
 
-const CONFIG_FILE = path.join("ltbridge", "ltbridge.config.json");
+const CONFIG_FILE = path.join("ltbridge", "config.json");
+const LUA_IGNORE_DIR = "**/ltbridge/modules/**";
+
+function ensureVscodeLuaIgnore(targetDir) {
+	const vscodeDir = path.join(targetDir, ".vscode");
+	const settingsPath = path.join(vscodeDir, "settings.json");
+	let settings = {};
+	if (fs.existsSync(settingsPath)) {
+		try {
+			settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+		} catch {
+			console.log(`\x1b[33m! Could not parse .vscode/settings.json — skipping Lua ignoreDir update.\x1b[0m`);
+			return;
+		}
+	}
+	const key = "Lua.workspace.ignoreDir";
+	const existing = settings[key];
+	if (Array.isArray(existing)) {
+		if (existing.includes(LUA_IGNORE_DIR)) {
+			console.log(`\x1b[90mℹ VS Code Lua ignoreDir already includes ltbridge/modules\x1b[0m`);
+			return;
+		}
+		settings[key] = [...existing, LUA_IGNORE_DIR];
+	} else if (typeof existing === "string") {
+		if (existing === LUA_IGNORE_DIR) {
+			console.log(`\x1b[90mℹ VS Code Lua ignoreDir already includes ltbridge/modules\x1b[0m`);
+			return;
+		}
+		settings[key] = [existing, LUA_IGNORE_DIR];
+	} else {
+		settings[key] = [LUA_IGNORE_DIR];
+	}
+	fs.ensureDirSync(vscodeDir);
+	fs.writeFileSync(settingsPath, JSON.stringify(settings, null, "\t") + "\n");
+	console.log(`\x1b[32m✓ Updated .vscode/settings.json (Lua.workspace.ignoreDir)\x1b[0m`);
+}
 
 async function initProject(targetDir) {
 	const configPath = path.join(targetDir, CONFIG_FILE);
@@ -61,7 +96,18 @@ async function initProject(targetDir) {
 			],
 			initial: 0,
 		},
+		{
+			type: "confirm",
+			name: "vscodeIgnore",
+			message: "Add Lua.workspace.ignoreDir for ltbridge/modules to .vscode/settings.json?",
+			initial: false,
+		},
 	]);
+
+	if (!response || response.buildMode === undefined) {
+		console.log(`\x1b[33m! Initialization cancelled.\x1b[0m`);
+		return;
+	}
 
 	const doBundle = response.buildMode === true;
 	const doMinify = response.minify === true;
@@ -69,7 +115,7 @@ async function initProject(targetDir) {
 
 	const initialConfig = {
 		version: version,
-		buildAsBundle: doBundle,
+		bundle: doBundle,
 		debug: doDebug,
 		minify: doMinify,
 		modules: [],
@@ -81,6 +127,10 @@ async function initProject(targetDir) {
 	console.log(`\x1b[90mℹ Build Mode: ${doBundle ? "bundle" : "individual"}\x1b[0m`);
 	console.log(`\x1b[90mℹ Minify: ${doMinify ? "enabled" : "disabled"}\x1b[0m`);
 	console.log(`\x1b[90mℹ Debug: ${doDebug ? "enabled" : "disabled"}\x1b[0m\n`);
+
+	if (response.vscodeIgnore) {
+		ensureVscodeLuaIgnore(targetDir);
+	}
 
 	generateFullApi(targetDir);
 	rebuildAndSyncState(targetDir, initialConfig);
@@ -322,10 +372,6 @@ function resolveCallsToModules(foundCalls) {
 
 function rebuildAndSyncState(targetDir, config, options = {}) {
 	rebuildBundle(targetDir, config, options);
-	const foundModules = scanLuaCalls(targetDir);
-	const fingerprint = computeBuildFingerprint(config, version, foundModules);
-	saveBuildState(targetDir, fingerprint);
-	return fingerprint;
 }
 
 function pruneModules(targetDir) {
@@ -374,13 +420,14 @@ function isWatcherIgnoredPath(targetDir, filePath) {
 	if (rel === "ltbridge/modules" || rel.startsWith("ltbridge/modules/")) return true;
 	if (rel === "ltbridge/api.lua") return true;
 	if (rel === "fxmanifest.lua" || rel === "__resource.lua") return true;
-	if (rel.endsWith("ltbridge.config.json")) return false;
+	if (rel === "ltbridge/config.json") return false;
 
 	let stat;
 	try {
 		stat = fs.statSync(absPath);
 	} catch {
-		return true;
+		// Deleted paths still matter for lua deletions (unlink)
+		return !rel.endsWith(".lua");
 	}
 
 	if (stat.isDirectory()) return false;
@@ -389,6 +436,7 @@ function isWatcherIgnoredPath(targetDir, filePath) {
 
 function watchProject(targetDir, options = {}) {
 	let lastConfigState = "";
+	let lastFingerprint = null;
 	const configPath = path.join(targetDir, CONFIG_FILE);
 	if (fs.existsSync(configPath)) {
 		lastConfigState = fs.readFileSync(configPath, "utf-8");
@@ -426,9 +474,8 @@ function watchProject(targetDir, options = {}) {
 		}
 
 		const fingerprint = computeBuildFingerprint(currentConfig, version, foundModules);
-		const lastState = loadBuildState(targetDir);
 
-		if (lastState?.fingerprint === fingerprint) {
+		if (lastFingerprint === fingerprint) {
 			if (initial) {
 				console.log(`\x1b[90mℹ Build up to date, skipping initial rebuild\x1b[0m`);
 			} else {
@@ -443,7 +490,7 @@ function watchProject(targetDir, options = {}) {
 			if (modulesChanged) saveConfig(targetDir, currentConfig);
 
 			rebuildBundle(targetDir, currentConfig, { skipApi: true, ...options });
-			saveBuildState(targetDir, fingerprint);
+			lastFingerprint = fingerprint;
 		} finally {
 			watchIsSyncing = false;
 			if (watchPendingSync) {
@@ -489,11 +536,11 @@ function watchProject(targetDir, options = {}) {
 	watcher.on("all", (event, filename) => {
 		if (watchIsSyncing) return;
 		if (!filename || isWatcherIgnoredPath(targetDir, filename)) return;
-		if (event !== "change" && event !== "add") return;
+		if (event !== "change" && event !== "add" && event !== "unlink") return;
 
 		const absPath = path.isAbsolute(filename) ? filename : path.join(targetDir, filename);
 		const rel = path.relative(targetDir, absPath).replace(/\\/g, "/");
-		const isConfig = rel.endsWith("ltbridge.config.json") || rel === path.basename(CONFIG_FILE).replace(/\\/g, "/");
+		const isConfig = rel === "ltbridge/config.json";
 
 		if (isConfig) {
 			try {
@@ -701,7 +748,7 @@ function explainModule(targetDir, moduleName) {
 	}
 
 	if (isManual) {
-		console.log(`  \x1b[32m✔ You explicitly added it to your ltbridge.config.json\x1b[0m`);
+		console.log(`  \x1b[32m✔ You explicitly added it to your ltbridge/config.json\x1b[0m`);
 	}
 
 	if (isDep) {

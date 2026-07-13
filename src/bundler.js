@@ -48,7 +48,7 @@ function generateFullApi(targetDir) {
 	const ltModulesDir = path.join(targetDir, "ltbridge");
 	fs.ensureDirSync(ltModulesDir);
 
-	const apiHeader = `--- @meta\n--- LT Bridge API Reference\n--- Auto-generated stub file for IDE intellisense.\n--- Do NOT include this file in your fxmanifest.\n\n`;
+	const apiHeader = `--- @meta\n--- LT Bridge API Reference\n--- Auto-generated stub file for IDE intellisense.\n--- Do NOT include this file in your fxmanifest.\n--- For more information: https://github.com/laot7490/ltbridge\n\n`;
 	const initBlock = `LT = LT or {}\n` + Array.from(requiredTables).sort().join("\n") + "\n\n";
 	const typesBlock = typeMap.size > 0 ? Array.from(typeMap.values()).join("\n\n") + "\n\n" : "";
 	const apiContent = apiHeader + initBlock + typesBlock + apiStubs.join("\n\n") + "\n";
@@ -58,28 +58,21 @@ function generateFullApi(targetDir) {
 
 function rebuildBundle(targetDir, config, options = {}) {
 	const { version } = require("../package.json");
-	const skipApi = options.skipApi === true;
 
 	if (config.version !== version) {
-		if (!skipApi) {
-			console.log(
-				`\x1b[36mℹ LTBridge version updated (${config.version || "unknown"} -> ${version}). Regenerating API stubs...\x1b[0m`,
-			);
-			generateFullApi(targetDir);
-		} else {
-			console.log(
-				`\x1b[36mℹ LTBridge version updated (${config.version || "unknown"} -> ${version}). Run 'ltbridge api' to refresh API stubs.\x1b[0m`,
-			);
-		}
+		console.log(
+			`\x1b[36mℹ LTBridge version updated (${config.version || "unknown"} -> ${version}). Regenerating API stubs...\x1b[0m`,
+		);
+		generateFullApi(targetDir);
 		config.version = version;
-		const configPath = path.join(targetDir, "ltbridge", "ltbridge.config.json");
+		const configPath = path.join(targetDir, "ltbridge", "config.json");
 		fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
 	}
 
 	const startTime = Date.now();
 	const explicitModules = config.modules || [];
 	const doMinify = config.minify === true;
-	const buildAsIndividual = config.buildAsBundle !== true;
+	const buildAsIndividual = config.bundle !== true;
 
 	let loadSequence = [];
 	const { resolveDependencies } = require("./moduleResolver");
@@ -381,9 +374,6 @@ function rebuildBundle(targetDir, config, options = {}) {
 		writtenOutputs.add(rel);
 	};
 
-	const readmeContent = `=== LTBridge Auto-Generated Modules ===\nThese files were automatically generated and/or minified by LTBridge.\nRepository: https://github.com/laot7490/ltbridge\nLTBridge Version: ${version}\n`;
-	writeOutput("README.txt", readmeContent);
-
 	const { injectManifest } = require("./manifestInjector");
 	const getBundleHeader = (type) =>
 		`--[[\n * @license LT Bridge\n * ${type.toLowerCase()}.lua\n *\n * Copyright (c) LT Scripts.\n *\n * This source code is licensed under the MIT license found in the\n * LICENSE file in the root directory of this source tree.\n]]\n\n`;
@@ -471,7 +461,7 @@ function pruneGeneratedOutputs(ltModulesDir, writtenOutputs) {
 	}
 
 	const readmePath = path.join(ltModulesDir, "README.txt");
-	if (fs.existsSync(readmePath) && !writtenOutputs.has("README.txt")) {
+	if (fs.existsSync(readmePath)) {
 		fs.removeSync(readmePath);
 	}
 }

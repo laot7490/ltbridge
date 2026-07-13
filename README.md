@@ -56,18 +56,19 @@ npx @laot/bridge [command]
 
 *For the full walkthrough, see [Quick Start on GitBook](https://laot7490.gitbook.io/ltbridge/getting-started/quick-start).*
 
-## ⚙️ Configuration (`ltbridge/ltbridge.config.json`)
+## ⚙️ Configuration (`ltbridge/config.json`)
 
 When you run `init`, LTBridge creates a simple JSON config.
 
 | Setting | Default | Description |
 | --- | --- | --- |
-| `buildAsBundle`| chosen at `init` | Combine everything into 3 clean files (`shared`, `client`, `server`). Set to `true` for bundle mode. |
-| `debug` | chosen at `init` | Turn this on if you want to see internal debug prints from the modules. |
-| `minify` | chosen at `init` | Enables code optimization and global variable randomization for maximum performance. |
+| `version` | CLI version | Written by the tool; used to detect CLI upgrades and refresh API stubs. |
+| `bundle` | `false` | Combine everything into 3 clean files (`shared`, `client`, `server`). Set to `true` for bundle mode. |
+| `debug` | `false` | Turn this on if you want to see internal debug prints from the modules. |
+| `minify` | `false` | Enables code optimization and global variable randomization for maximum performance. |
 | `modules` | `[]` | List of installed modules. The tool manages this automatically. |
 
-When you run `init`, LTBridge walks you through bundle mode, minify, and debug options interactively.
+When you run `init`, LTBridge walks you through build mode, minify, debug, and an optional VS Code Lua ignoreDir setting.
 
 ## 🛠️ Commands
 

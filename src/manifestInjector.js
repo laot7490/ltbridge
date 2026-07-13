@@ -164,7 +164,6 @@ function injectManifest(targetDir, hasClient, hasServer, hasShared, isIndividual
 		injectBlock("files", "imports/**/*.lua");
 	} else {
 		removeBlock("imports/**/*.lua");
-		removeBlock("modules/**/*.lua");
 	}
 
 	if (injected) {
