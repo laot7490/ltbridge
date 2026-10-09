@@ -43,7 +43,7 @@ local adapter = adapters[GetFramework()] or function(...)
 end
 
 --- Returns player job data.
---- @return table<{name: string, label: string, grade: number, gradeName: string, gradeLabel: string, isBoss: boolean, onDuty: boolean}>|nil
+--- @return {name: string, label: string, grade: number, gradeName: string, gradeLabel: string, isBoss: boolean, onDuty: boolean}|nil
 function GetPlayerJobData()
     local jobData = GetPlayerData().job
     if not jobData then

@@ -45,7 +45,7 @@ end
 
 --- Returns player job data.
 --- @param source number Player source
---- @return table<{name: string, label: string, grade: number, gradeName: string, gradeLabel: string, isBoss: boolean, onDuty: boolean}>|nil
+--- @return {name: string, label: string, grade: number, gradeName: string, gradeLabel: string, isBoss: boolean, onDuty: boolean}|nil
 function GetPlayerJobData(source)
     ltassert(source, 'source is required')
 
