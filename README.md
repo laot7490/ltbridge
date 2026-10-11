@@ -86,6 +86,14 @@ Full command reference with examples: [CLI Commands on GitBook](https://laot7490
 | `ltbridge list` | - | View installed and available modules. |
 | `ltbridge prune` | - | Clean up unused modules from your code. |
 
+## 🤖 AI / IDE Skill
+
+The repo ships an agent skill at [`skill/ltbridge`](skill/ltbridge/SKILL.md) that teaches AI assistants how to use `LT.*` APIs and the `ltbridge` CLI in your resources. Copy the `ltbridge` folder into your IDE's skills directory:
+
+- Cursor: `.cursor/skills/ltbridge`
+- Claude Code: `.claude/skills/ltbridge`
+- Other agents: `.agents/skills/ltbridge`
+
 ## 🤝 Contributing
 
 Got a cool function or utility? We'd love to have it! The system is designed so anyone can easily add new modules without touching complex configs.
