@@ -43,7 +43,7 @@ npm i -g @laot/bridge@latest    # update (pnpm add -g @laot/bridge@latest)
 | Command | What it does |
 |---------|--------------|
 | `ltbridge init` | Interactive setup (build mode, minify, debug, VS Code Lua ignoreDir). Creates `ltbridge/config.json`, `ltbridge/api.lua`, runs first build. |
-| `ltbridge build -w` | Watcher. Scans `.lua` files for `LT.*` calls, adds/removes modules automatically, rebuilds and updates the manifest on save. |
+| `ltbridge build -w` | Watcher. Scans `.lua` files for `LT.*` calls, **adds** missing modules automatically, rebuilds and updates the manifest on save. Does **not** remove unused modules — use `ltbridge prune` for that. |
 | `ltbridge build` | One-off rebuild from `config.json`. Aliases: `sync`, `install`, `refresh`. `-d` shows details. Does **not** scan code. |
 | `ltbridge add <name>` | Add a module and rebuild. Accepts `Notify`, `Framework/GetPlayerName`, `LT.Notify.Send`, wildcards like `Target/*`. |
 | `ltbridge remove <name>` | Remove a module and rebuild. Same name formats. |
@@ -134,7 +134,7 @@ LT.Events.EmitNet('buyResult', src, true)
 | Fuel | `LT.Fuel` |
 | Resource start/stop hooks | `LT.Hooks` |
 | Input dialog | `LT.Input` |
-| Items, stash, carry checks | `LT.Inventory` |
+| Items, stash, open inventory, carry checks | `LT.Inventory` |
 | Locale | `LT.Locale` |
 | Logging / debug | `LT.Logger`, `LT.Debug` |
 | Menus | `LT.Menu` |
@@ -185,7 +185,7 @@ exports.ox_lib:notify({ ... })            -- use LT.Notify
 - [ ] Every `LT.*` symbol used was checked in `ltbridge/api.lua`.
 - [ ] Stub tag (CLIENT / SERVER / SHARED) matches the file side.
 - [ ] New modules picked up: watcher running, or `ltbridge add <name>` run.
-- [ ] Removed usages cleaned up with `ltbridge prune` (when no watcher).
+- [ ] Removed usages cleaned up with `ltbridge prune` (watcher does not auto-remove).
 - [ ] No manual edits under `ltbridge/modules/` or to LTBridge manifest entries.
 - [ ] No duplicate helpers, no direct third-party calls where `LT.*` exists.
 - [ ] CLI used globally, no `package.json` / npm deps added to the resource.

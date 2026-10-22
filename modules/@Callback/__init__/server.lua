@@ -17,9 +17,6 @@ local function triggerClientCallback(event, playerId, cb, ...)
         key = ('%s:%s:%s'):format(event, math.random(0, 100000), playerId)
     until not pendingCallbacks[key]
 
-    TriggerClientEvent(__LT_RESOURCE_NAME..':cb:validate', playerId, event, key)
-    TriggerClientEvent(cbEvent:format(event), playerId, __LT_RESOURCE_NAME, key, ...)
-
     --- @type promise | false
     local p = not cb and promise.new()
 
@@ -44,6 +41,9 @@ local function triggerClientCallback(event, playerId, cb, ...)
             cb(table.unpack(response))
         end
     end
+
+    TriggerClientEvent(__LT_RESOURCE_NAME..':cb:validate', playerId, event, key)
+    TriggerClientEvent(cbEvent:format(event), playerId, __LT_RESOURCE_NAME, key, ...)
 
     if p then
         SetTimeout(15000, function()

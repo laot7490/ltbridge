@@ -7,6 +7,7 @@ local list = {
     ['qs-smartphone-pro'] = {},
     ['gksphone'] = {},
     ['cylex_phone'] = {},
+    ['yseries'] = {},
 }
 
 --- Returns phone resource name.

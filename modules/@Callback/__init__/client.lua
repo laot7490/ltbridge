@@ -17,9 +17,6 @@ local function triggerServerCallback(event, cb, ...)
         key = ('%s:%s'):format(event, math.random(0, 100000))
     until not pendingCallbacks[key]
 
-    TriggerServerEvent(__LT_RESOURCE_NAME..':cb:validate', event, key)
-    TriggerServerEvent(cbEvent:format(event), __LT_RESOURCE_NAME, key, ...)
-
     --- @type promise | false
     local p = not cb and promise.new()
 
@@ -44,6 +41,9 @@ local function triggerServerCallback(event, cb, ...)
             cb(table.unpack(response))
         end
     end
+
+    TriggerServerEvent(__LT_RESOURCE_NAME .. ':cb:validate', event, key)
+    TriggerServerEvent(cbEvent:format(event), __LT_RESOURCE_NAME, key, ...)
 
     if p then
         SetTimeout(15000, function()

@@ -7,6 +7,7 @@ const { getModuleRegistry, getModuleData } = require("./registry");
 const { pickExportModule } = require("./resolveExport");
 const { getVisibleModules, buildModuleGroups, getDependencySets, getFilteredSortedMods } = require("./moduleListUi");
 const { computeBuildFingerprint } = require("./buildState");
+const { stripLuaForScan } = require("./stripLuaSource");
 const prompts = require("prompts");
 
 const CONFIG_FILE = path.join("ltbridge", "config.json");
@@ -240,9 +241,7 @@ function addModule(targetDir, moduleName) {
 		if (isInternal) {
 			if (!moduleName.endsWith("*")) {
 				console.log(`\x1b[31m✖ Cannot manually add internal ghost module '${resolvedName}'.\x1b[0m`);
-				console.log(
-					`\x1b[90mℹ Ghost modules are active and managed purely as auto-dependencies behind the scenes.\x1b[0m`,
-				);
+				console.log(`\x1b[90mℹ Ghost modules are active and managed purely as auto-dependencies behind the scenes.\x1b[0m`);
 				internalBlocked = true;
 			}
 			continue;
@@ -265,9 +264,7 @@ function addModule(targetDir, moduleName) {
 		rebuildAndSyncState(targetDir, config, { skipApi: true });
 	} else if (moduleName.endsWith("*")) {
 		if (internalBlocked) {
-			console.log(
-				`\x1b[31m✖ No addable modules matched '${moduleName}' (internal-only modules are auto-managed).\x1b[0m`,
-			);
+			console.log(`\x1b[31m✖ No addable modules matched '${moduleName}' (internal-only modules are auto-managed).\x1b[0m`);
 			process.exit(1);
 		}
 		console.log(`\x1b[90mℹ All matching modules are already added.\x1b[0m`);
@@ -327,7 +324,7 @@ function scanLuaCalls(dir) {
 			if (stat.isDirectory()) {
 				search(fullPath);
 			} else if (file.endsWith(".lua")) {
-				const content = fs.readFileSync(fullPath, "utf8");
+				const content = stripLuaForScan(fs.readFileSync(fullPath, "utf8"));
 				const regex = /LT\.([a-zA-Z0-9_.]+)/g;
 				let match;
 				while ((match = regex.exec(content)) !== null) {
@@ -455,16 +452,10 @@ function watchProject(targetDir, options = {}) {
 		let modulesChanged = false;
 		const newConfigModules = new Set(currentConfig.modules);
 
+		// watch is add-only; use `ltbridge prune` / `remove` to drop unused modules
 		for (const mod of validRequestedModules) {
 			if (!newConfigModules.has(mod)) {
 				newConfigModules.add(mod);
-				modulesChanged = true;
-			}
-		}
-
-		for (const mod of currentConfig.modules) {
-			if (!validRequestedModules.has(mod)) {
-				newConfigModules.delete(mod);
 				modulesChanged = true;
 			}
 		}
@@ -534,7 +525,10 @@ function watchProject(targetDir, options = {}) {
 	});
 
 	watcher.on("all", (event, filename) => {
-		if (watchIsSyncing) return;
+		if (watchIsSyncing) {
+			watchPendingSync = true;
+			return;
+		}
 		if (!filename || isWatcherIgnoredPath(targetDir, filename)) return;
 		if (event !== "change" && event !== "add" && event !== "unlink") return;
 

@@ -37,11 +37,8 @@ function InitLogger(logType, data)
         if not data or not data.webhook then return printf('error', 'Please provide a webhook for discord logger.') end
         settings.webhook = data.webhook
     elseif logType == 'txt' then
-        if not data or not data.folder then
-            data.folder = 'logs/'
-        else
-            settings.folder = data.folder
-        end
+        data = data or {}
+        settings.folder = data.folder or 'logs/'
     elseif logType == 'fivemanage' then
         if GetResourceState("fmsdk") == "missing" then
             return printf('error', '^3fivemanage^7 log system selected but ^3fmsdk^7 resource is missing.')
@@ -50,17 +47,17 @@ function InitLogger(logType, data)
         if not data or not data.fivemerrAPIKey then return printf('error', 'Please provide a fivemerr API key for logger.') end
         settings.fivemerrAPIKey = data.fivemerrAPIKey
     end
-    
+
     settings.type = logType
-    
-    if data and data.interval then 
-        settings.interval = data.interval 
+
+    if data and data.interval then
+        settings.interval = data.interval
     end
 
     CreateThread(function()
         while true do
             Wait(settings.interval)
-            
+
             if settings.type == 'txt' then
                 if #txtBuffer > 0 then
                     local date = os.date('%Y-%m-%d')
@@ -105,7 +102,7 @@ function InitLogger(logType, data)
                         table.remove(discordBuffer, toRemove[i])
                     end
 
-                    PerformHttpRequest(settings.webhook, function(status, text, headers) 
+                    PerformHttpRequest(settings.webhook, function(status, text, headers)
                         if status ~= 200 and status ~= 204 then
                             printf('error', 'Failed to send logs to discord. Status: %s - Response: %s', json.encode(status), json.encode(text))
                         end
@@ -116,7 +113,6 @@ function InitLogger(logType, data)
                     }), { ['Content-Type'] = 'application/json' })
                 end
             end
-
         end
     end)
 end

@@ -18,6 +18,9 @@ local adapters = {
     ['cylex_phone'] = function(source)
         local user = exports['cylex_phone']:getUserDataBySource(source)
         return user and user.phoneNumber
+    end,
+    ['yseries'] = function(source)
+        return exports.yseries:GetPhoneNumberBySourceId(source)
     end
 }
 
@@ -25,7 +28,7 @@ local adapters = {
 --- @param source number Player source
 --- @return string|nil `Phone number` if found, `nil` otherwise.
 function GetNumber(source)
-    if not source then return nil end
+    ltassert(source and source > 0, 'source is required')
     local adapter = adapters[GetPhoneResource()]
     if adapter then
         return adapter(source) or nil

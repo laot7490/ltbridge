@@ -18,7 +18,7 @@ local adapters = {
     ['qb-inventory'] = function(source)
         local player = GetPlayer(source)
         if not player then return {} end
-        local inventory = player.PlayerData.item
+        local inventory = player.PlayerData.items
         local repackedTable = {}
         for _, v in pairs(inventory) do
             table.insert(repackedTable, {

@@ -7,10 +7,6 @@ function analyzeModuleDependencies(modName, { exportMap, registry, modules }) {
 	const availableModules = Object.keys(registry);
 	const dependencies = new Set();
 
-	if (modData.meta && Array.isArray(modData.meta.dependencies)) {
-		for (const dep of modData.meta.dependencies) dependencies.add(dep);
-	}
-
 	let combinedCode = "";
 	["shared", "client", "server"].forEach((file) => {
 		if (modData[file] && modData[file].code) {

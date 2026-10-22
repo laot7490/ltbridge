@@ -60,6 +60,7 @@ local adapters = {
     end,
     ['cd_dispatch'] = function(data)
         local pData = exports['cd_dispatch']:GetPlayerInfo()
+        local blipData = data.blipData or {}
         TriggerServerEvent('cd_dispatch:AddNotification', {
             job_table = data.jobs,
             coords = data.coords,
@@ -69,9 +70,9 @@ local adapters = {
             unique_id = pData.unique_id,
             sound = 1,
             blip = {
-                sprite = data.blipData.sprite,
-                scale = data.blipData.scale,
-                colour = data.blipData.color,
+                sprite = blipData.sprite,
+                scale = blipData.scale,
+                colour = blipData.color,
                 flashes = false,
                 text = data.message,
                 time = (data.time / 1000),
@@ -80,6 +81,7 @@ local adapters = {
         })
     end,
     ['tk_dispatch'] = function(data)
+        local blipData = data.blipData or {}
         local alertData = {
             title = data.message,
             code = data.code or '10-80',
@@ -89,15 +91,16 @@ local adapters = {
             showGender = false,
             playSound = true,
             blip = {
-                color = data.blipData.color or 3,
-                sprite = data.blipData.sprite or 1,
-                scale = data.blipData.scale or 0.8,
+                color = blipData.color or 3,
+                sprite = blipData.sprite or 1,
+                scale = blipData.scale or 0.8,
             },
             jobs = data.jobs or { 'police' },
         }
         exports.tk_dispatch:addCall(alertData)
     end,
     ['qs-dispatch'] = function(data)
+        local blipData = data.blipData or {}
         local customData = {
             job = data.jobs or { 'police' },
             callLocation = data.coords or vec3(0.0, 0.0, 0.0),
@@ -109,9 +112,9 @@ local adapters = {
             flashes = false,
             image = nil,
             blip = {
-                sprite = data.blipData.sprite or 1,
-                scale = data.blipData.scale or 1.0,
-                colour = data.blipData.color or 1,
+                sprite = blipData.sprite or 1,
+                scale = blipData.scale or 1.0,
+                colour = blipData.color or 1,
                 flashes = false,
                 text = data.message or "Alert",
                 time = data.length and (data.time * 1000) or 20000
@@ -132,7 +135,7 @@ local adapters = {
     ['emergencydispatch'] = function(data)
         local ped = PlayerPedId()
 
-        local job = data.job or data.jobs[1] or 'police'
+        local job = data.job or (data.jobs and data.jobs[1]) or 'police'
         local message = data.message or 'Alert'
         local coords = data.coords or GetEntityCoords(ped)
 
@@ -140,12 +143,13 @@ local adapters = {
     end,
     ['wasabi_mdt'] = function(data)
         local fallbackCoords = GetEntityCoords(PlayerPedId())
+        local coords = data.coords or fallbackCoords
         local alertData = {
             type = data.code or '10-80',
             title = data.code or '10-80',
             description = data.message or "No message provided",
-            location = { data.coords.x, data.coords.y, data.coords.z } or { fallbackCoords.x, fallbackCoords.y, fallbackCoords.z },
-            coords = { data.coords.x, data.coords.y, data.coords.z } or { fallbackCoords.x, fallbackCoords.y, fallbackCoords.z },
+            location = { coords.x, coords.y, coords.z },
+            coords = { coords.x, coords.y, coords.z },
         }
         exports.wasabi_mdt:CreateDispatch(alertData)
     end,

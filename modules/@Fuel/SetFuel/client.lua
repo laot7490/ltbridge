@@ -1,7 +1,6 @@
 local adapters = {
     ['ox_fuel'] = function(vehicle, fuel)
-        local newFuel = (Entity(vehicle).state.fuel or 0) + fuel
-        Entity(vehicle).state.fuel = newFuel
+        Entity(vehicle).state.fuel = fuel
     end,
     ['x-fuel'] = function(vehicle, fuel)
         Fuel:SetFuel(vehicle, fuel)

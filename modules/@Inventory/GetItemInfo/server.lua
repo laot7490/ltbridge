@@ -40,13 +40,14 @@ local adapters = {
     end,
     ['tgiann-inventory'] = function(item)
         local itemData = Inventory:GetItemList()
-        if not itemData[item] then return {} end
+        local entry = itemData and itemData[item]
+        if not entry then return {} end
         return {
-            name = itemData.name or "Missing Name",
-            label = itemData.label or "Missing Label",
-            stack = itemData.unique or false,
-            weight = itemData.weight or 0,
-            description = itemData.description or "none",
+            name = entry.name or "Missing Name",
+            label = entry.label or "Missing Label",
+            stack = entry.unique or false,
+            weight = entry.weight or 0,
+            description = entry.description or "none",
             image = GetItemImage(item),
         }
     end,

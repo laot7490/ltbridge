@@ -21,12 +21,9 @@ end
 --- @param grade number Job grade
 --- @return boolean
 function SetPlayerJob(source, name, grade)
-    if not source then
-        printf('error', 'source is required')
-        return false
-    end
+    ltassert(source and source > 0, 'source is required')
 
-    if not name or not grade then
+    if not name or grade == nil then
         printf('error', 'name and grade are required')
         return false
     end

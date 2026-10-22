@@ -56,6 +56,17 @@ local adapters = {
         if not identifier then return false end
         exports['cylex_phone']:sendMail(identifier, source, { sender = mail, subject = title, message = message })
         return true
+    end,
+    ['yseries'] = function(source, mail, title, message)
+        local phone = exports.yseries:GetPhoneNumberBySourceId(source)
+        if not phone then return false end
+        local insertId = exports.yseries:SendMail({
+            title = title,
+            sender = mail,
+            senderDisplayName = mail,
+            content = message,
+        }, 'phoneNumber', phone)
+        return insertId and true or false
     end
 }
 
