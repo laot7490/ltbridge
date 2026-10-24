@@ -1,6 +1,12 @@
-local SendNUIMessage = SendNUIMessage
+local SendNUIMessage <const> = SendNUIMessage
 
-local MAX_TRAVERSAL_DEPTH = 128
+local MAX_TRAVERSAL_DEPTH <const> = 128
+local JSON_OBJECT_MT <const> = { __jsontype = "object" }
+local PAYLOAD_OPTS <const> = {
+    payloadMode = true,
+    applyIgnore = true,
+    maxDepth = MAX_TRAVERSAL_DEPTH
+}
 
 local RootState = {}
 RootState.__index = RootState
@@ -139,53 +145,13 @@ local function cloneValue(value, options, depth, seen, ignoreNode)
     end
 
     seen[value] = nil
+
+    -- fivem turns {} into [] otherwise
+    if options.payloadMode and next(out) == nil then
+        setmetatable(out, JSON_OBJECT_MT)
+    end
+
     return out
-end
-
-local function deepEqual(a, b, seen, depth)
-    a = unwrapProxy(a)
-    b = unwrapProxy(b)
-
-    local typeA = type(a)
-    local typeB = type(b)
-    if typeA ~= typeB then
-        return false
-    end
-
-    if typeA ~= "table" then
-        return a == b
-    end
-
-    if a == b then
-        return true
-    end
-
-    if depth >= MAX_TRAVERSAL_DEPTH then
-        return false
-    end
-
-    seen = seen or {}
-    seen[a] = seen[a] or {}
-    if seen[a][b] then
-        return true
-    end
-    seen[a][b] = true
-
-    local keys = {}
-    for key, value in pairs(a) do
-        keys[key] = true
-        if not deepEqual(value, b[key], seen, depth + 1) then
-            return false
-        end
-    end
-
-    for key in pairs(b) do
-        if not keys[key] then
-            return false
-        end
-    end
-
-    return true
 end
 
 local function ensurePatchPath(root, path)
@@ -350,11 +316,7 @@ function RootState:queuePatch(path, value)
         return
     end
 
-    local payload = cloneValue(value, {
-        payloadMode = true,
-        applyIgnore = true,
-        maxDepth = MAX_TRAVERSAL_DEPTH
-    }, 0, {}, ignoreNode)
+    local payload = cloneValue(value, PAYLOAD_OPTS, 0, {}, ignoreNode)
 
     if payload == nil then
         self:queueDelete(path)
@@ -371,31 +333,58 @@ function RootState:queuePatch(path, value)
     target[key] = payload
 end
 
+function RootState:flush()
+    local hasPatch = next(self._batchPatch) ~= nil
+    local deletes = collectDeleteList(self._batchDeleteSet)
+    local hasDeletes = #deletes > 0
+
+    if not hasPatch and not hasDeletes then
+        return
+    end
+
+    SendNUIMessage({
+        action = self._action,
+        batch = hasPatch and self._batchPatch or {},
+        deletes = hasDeletes and deletes or nil
+    })
+
+    self:clearBatch()
+end
+
+function RootState:invalidateScheduledFlush()
+    self._flushGen = self._flushGen + 1
+    self._isTicking = false
+end
+
 function RootState:scheduleFlush()
     if self._isTicking then
         return
     end
 
     self._isTicking = true
+    self._flushGen = self._flushGen + 1
+    local gen = self._flushGen
     SetTimeout(0, function()
-        self._isTicking = false
-
-        local hasPatch = next(self._batchPatch) ~= nil
-        local deletes = collectDeleteList(self._batchDeleteSet)
-        local hasDeletes = #deletes > 0
-
-        if not hasPatch and not hasDeletes then
+        if gen ~= self._flushGen then
             return
         end
-
-        SendNUIMessage({
-            action = self._action,
-            batch = hasPatch and self._batchPatch or {},
-            deletes = hasDeletes and deletes or nil
-        })
-
-        self:clearBatch()
+        self._isTicking = false
+        self:flush()
     end)
+end
+
+function RootState:requestFlush(async)
+    if self._updateDepth > 0 then
+        return
+    end
+
+    if async then
+        self:scheduleFlush()
+        return
+    end
+
+    self:invalidateScheduledFlush()
+    self:flush()
 end
 
 function RootState:replaceInternal(newInternal)
@@ -409,51 +398,37 @@ function RootState:replaceInternal(newInternal)
     detachChildren(self._rootNode)
 end
 
---- Returns a deep-copied version of the current state.
---- This output is safe for logging and debug tools.
---- It does not apply `ignoreList`.
---- @return table
-function RootState:raw()
-    return cloneValue(self._internal, {
-        payloadMode = false,
-        applyIgnore = false,
-        maxDepth = MAX_TRAVERSAL_DEPTH
-    }, 0, {}, nil) or {}
+local function payloadState(root)
+    return cloneValue(root._internal, PAYLOAD_OPTS, 0, {}, root._ignoreTree) or {}
 end
 
---- Returns the serialized state that would be sent to NUI.
---- Paths in `ignoreList` are filtered out.
+--- Raw table underneath. Writing here doesn't go to NUI.
 --- @return table
-function RootState:snapshot()
-    return cloneValue(self._internal, {
-        payloadMode = true,
-        applyIgnore = true,
-        maxDepth = MAX_TRAVERSAL_DEPTH
-    }, 0, {}, self._ignoreTree) or {}
+function RootState:asTable()
+    return self._internal
 end
 
---- Sends the full filtered state to NUI.
---- Message action format: `<action>_sync`.
---- @return nil
+--- Push full state. Action becomes `<action>_sync`.
 function RootState:sync()
+    self:invalidateScheduledFlush()
+    self:clearBatch()
+
     SendNUIMessage({
         action = self._action .. "_sync",
-        state = self:snapshot()
+        state = payloadState(self)
     })
 end
 
---- Replaces the whole state tree and pushes a full replace payload to NUI.
---- This is not a patch operation.
---- Message action format: `<action>_set`.
---- @param nextState table New root state table.
---- @return nil
+--- Replace the whole state. Action becomes `<action>_set`.
+--- @param nextState table
 function RootState:set(nextState)
     self:replaceInternal(nextState or {})
+    self:invalidateScheduledFlush()
     self:clearBatch()
 
     SendNUIMessage({
         action = self._action .. "_set",
-        state = self:snapshot()
+        state = payloadState(self)
     })
 end
 
@@ -476,16 +451,25 @@ local function updateProxyTable(targetProxy, patch, depth)
     end
 end
 
---- Applies a deep patch on top of the existing state.
---- Missing nested tables are created automatically.
---- Existing keys stay as-is unless patch overrides them.
---- @param patch table Partial state update payload.
---- @return nil
-function RootState:update(patch)
-    if type(patch) ~= "table" then
+--- Merge `patch` into state, one flush at the end.
+--- @param patch table
+--- @param async? boolean true = SetTimeout(0) flush. default is sync.
+function RootState:update(patch, async)
+    ltassert(type(patch) == "table", "patch must be a table, got %s instead.", type(patch))
+
+    self._updateDepth = self._updateDepth + 1
+    local ok, err = pcall(updateProxyTable, self._proxy, patch, 0)
+    self._updateDepth = self._updateDepth - 1
+
+    if not ok then
+        error(err)
+    end
+
+    if self._updateDepth > 0 then
         return
     end
-    updateProxyTable(self._proxy, patch, 0)
+
+    self:requestFlush(async and true or false)
 end
 
 local function buildProxy(root, node)
@@ -570,16 +554,12 @@ local function buildProxy(root, node)
 
                 if not ignored and not isNodeDetached(node) then
                     root:queueDelete(fullPath)
-                    root:scheduleFlush()
+                    root:requestFlush(false)
                 end
                 return
             end
 
-            if ignored then
-                if current == value then
-                    return
-                end
-            elseif deepEqual(current, value, nil, 0) then
+            if current == value then
                 return
             end
 
@@ -597,7 +577,7 @@ local function buildProxy(root, node)
             end
 
             root:queuePatch(fullPath, value)
-            root:scheduleFlush()
+            root:requestFlush(false)
         end,
         __pairs = function()
             local target = resolveNodeTarget(node)
@@ -627,62 +607,78 @@ local function buildProxy(root, node)
     return proxy
 end
 
---- Creates a reactive state table for NUI.
----
---- The returned proxy behaves like a normal Lua table.
---- Nested writes are tracked and same-tick changes are batched into one NUI message.
---- Assigning `nil` deletes the key and sends the deleted path in `deletes`.
+--- Reactive proxy from `LT.NUI.CreateState`. Methods are typed; state keys are dynamic (`[any] any`)
+--- @class NuiState
+--- @field [any] any
+--- @field update fun(self: NuiState, patch: table, async?: boolean) Merge `patch` into state; one flush at the end. `async` = SetTimeout(0).
+--- @field set fun(self: NuiState, nextState: table) Replace the whole state (`<action>_set`).
+--- @field sync fun(self: NuiState) Push current state as-is (`<action>_sync`).
+--- @field asTable fun(self: NuiState): table Raw table underneath; writes here do not go to NUI.
+
+--- Reactive NUI state. Writes on the proxy send a patch to NUI.
 ---
 --- ```lua
 --- local player = LT.NUI.CreateState("UpdatePlayer", {
----     hud = {
----         health = 100,
----         armor = 100
----     },
----     inventory = {
----         items = {
----             { id = 1, name = "Apple", quantity = 1, secret = "123" }
----         }
----     },
----     localOnly = {
----         secret = "123"
----     }
---- }, { "localOnly", "inventory.items.1.secret" })
+---     hud = { health = 100, armor = 100 },
+---     localOnly = { secret = "x" },
+--- }, { "localOnly" })
 ---
+--- -- single field, message goes out now
 --- player.hud.health = 50
---- player.hud.armor = 25
---- player.inventory.items[1].name = nil
---- player:update({ hud = { health = 75 } })
+---
+--- -- several fields, one message
+--- player:update({
+---     hud = { health = 75, armor = 20 },
+--- })
+---
+--- -- same, but flush via SetTimeout(0)
+--- player:update({ hud = { health = 80 } }, true)
+---
+--- -- replace the whole state
 --- player:set({ hud = { health = 100, armor = 100 } })
+---
+--- -- push current state as-is
 --- player:sync()
+---
+--- -- raw table (won't hit NUI)
+--- local t = player:asTable()
 --- ```
 ---
---- **Pinia / Vue**
---- ```javascript
---- window.addEventListener("message", (event) => {
----   const data = event.data;
----   const store = usePlayerStore();
+--- **Vue + Pinia** (`@laot/nuix`)
+--- ```ts
+--- import { defineStore } from "pinia";
+--- import { onNuiAction, applyLtBatch, replaceLtState } from "@laot/nuix";
 ---
----   if (data.action === "UpdatePlayer") {
----     store.$patch(data.batch || {});
----     for (const path of data.deletes || []) unsetByPath(store.$state, path);
----   }
+--- export const usePlayerStore = defineStore("player", {
+---   state: () => ({
+---     hud: { health: 100, armor: 100 },
+---   }),
+--- });
 ---
----   if (data.action === "UpdatePlayer_sync" || data.action === "UpdatePlayer_set") {
----     store.$state = data.state;
----   }
+--- const store = usePlayerStore();
+---
+--- onNuiAction("UpdatePlayer", (data) => {
+---   applyLtBatch(store.$state, data);
+--- });
+---
+--- onNuiAction("UpdatePlayer_sync", (data) => {
+---   replaceLtState(store.$state, data.state ?? {});
+--- });
+---
+--- onNuiAction("UpdatePlayer_set", (data) => {
+---   replaceLtState(store.$state, data.state ?? {});
 --- });
 --- ```
 ---
---- @param action string Base update action. Example: `UpdatePlayer`.
---- @param tbl? table Initial state table.
---- @param ignoreList? string[] Dot-path list that will never be sent to NUI (ignored). Example: `{ "hud.health", "inventory.items.1.secret" }`
---- @return table proxy Reactive state proxy (`:sync`, `:set`, `:update`, `:raw`, `:snapshot`).
+--- @generic T : table
+--- @param action string e.g. `UpdatePlayer`
+--- @param initialTable? T
+--- @param ignoreList? string[] paths that never leave Lua
+--- @return T|NuiState Reactive proxy; field writes and :update / :set / :sync push to NUI.
 --- @ltbridge export: CreateState
-function CreateNUIState(action, tbl, ignoreList)
-    if not action or type(action) ~= "string" then
-        printf('error', 'action must be provided and must be a string')
-    end
+function CreateNUIState(action, initialTable, ignoreList)
+    ltassert(action and type(action) == "string", "action must be a non-empty string")
+
     local ignoreTree = createIgnoreNode()
     if type(ignoreList) == "table" then
         for _, key in ipairs(ignoreList) do
@@ -692,18 +688,20 @@ function CreateNUIState(action, tbl, ignoreList)
         end
     end
 
-    local internal = unwrapProxy(tbl)
+    local internal = unwrapProxy(initialTable)
     if type(internal) ~= "table" then
         internal = {}
     end
 
     local root = setmetatable({
         _internal = internal,
-        _action = action or "ltbridge_state_update",
+        _action = action,
         _ignoreTree = ignoreTree,
         _batchPatch = {},
         _batchDeleteSet = {},
-        _isTicking = false
+        _isTicking = false,
+        _flushGen = 0,
+        _updateDepth = 0
     }, RootState)
 
     local rootNode = {

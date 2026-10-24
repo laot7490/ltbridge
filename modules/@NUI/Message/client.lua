@@ -31,7 +31,8 @@ end
 --- @param data? table Optional data payload
 --- @ltbridge export: Message
 function MessageNUI(action, data)
-    ltassert(action, 'action is required.')
+    CheckNUI()
+    ltassert(action and type(action) == 'string', 'action must be a non-empty string')
     local payload = {}
     if data ~= nil then
         ltassert(type(data) == 'table', 'data must be a table, got %s instead.', type(data))
