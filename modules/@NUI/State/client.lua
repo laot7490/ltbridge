@@ -2,6 +2,7 @@ local SendNUIMessage <const> = SendNUIMessage
 
 local MAX_TRAVERSAL_DEPTH <const> = 128
 local JSON_OBJECT_MT <const> = { __jsontype = "object" }
+local JSON_ARRAY_MT <const> = { __jsontype = "array" }
 local PAYLOAD_OPTS <const> = {
     payloadMode = true,
     applyIgnore = true,
@@ -92,11 +93,68 @@ local function getIgnoreCursor(root, path)
     return node.ignored, node
 end
 
+local function createTypeNode()
+    return {
+        jsonType = nil,
+        children = {},
+        star = nil
+    }
+end
+
+local function addTypePath(root, path, jsonType)
+    local node = root
+    for part in path:gmatch("[^%.]+") do
+        if part == "*" then
+            if not node.star then
+                node.star = createTypeNode()
+            end
+            node = node.star
+        else
+            local children = node.children
+            if not children[part] then
+                children[part] = createTypeNode()
+            end
+            node = children[part]
+        end
+    end
+    node.jsonType = jsonType
+end
+
+local function getTypeCursor(root, path)
+    if not root then
+        return nil
+    end
+    if path == "" then
+        return root
+    end
+
+    local node = root
+    for part in tostring(path):gmatch("[^%.]+") do
+        local nextNode = node.children[part]
+        if not nextNode then
+            nextNode = node.star
+        end
+        if not nextNode then
+            return nil
+        end
+        node = nextNode
+    end
+    return node
+end
+
+local function getTypeChild(typeNode, key)
+    if not typeNode then
+        return nil
+    end
+    local strKey = tostring(key)
+    return typeNode.children[strKey] or typeNode.star
+end
+
 local function isPayloadPrimitive(valueType)
     return valueType == "string" or valueType == "number" or valueType == "boolean"
 end
 
-local function cloneValue(value, options, depth, seen, ignoreNode)
+local function cloneValue(value, options, depth, seen, ignoreNode, typeNode)
     value = unwrapProxy(value)
     local valueType = type(value)
 
@@ -136,7 +194,7 @@ local function cloneValue(value, options, depth, seen, ignoreNode)
             end
         end
 
-        local cloned = cloneValue(child, options, depth + 1, seen, childIgnoreNode)
+        local cloned = cloneValue(child, options, depth + 1, seen, childIgnoreNode, getTypeChild(typeNode, key))
         if cloned ~= nil then
             out[key] = cloned
         end
@@ -146,9 +204,13 @@ local function cloneValue(value, options, depth, seen, ignoreNode)
 
     seen[value] = nil
 
-    -- fivem turns {} into [] otherwise
-    if options.payloadMode and next(out) == nil then
-        setmetatable(out, JSON_OBJECT_MT)
+    if options.payloadMode and typeNode then
+        local jsonType = typeNode.jsonType
+        if jsonType == "object" then
+            setmetatable(out, JSON_OBJECT_MT)
+        elseif jsonType == "array" then
+            setmetatable(out, JSON_ARRAY_MT)
+        end
     end
 
     return out
@@ -316,7 +378,7 @@ function RootState:queuePatch(path, value)
         return
     end
 
-    local payload = cloneValue(value, PAYLOAD_OPTS, 0, {}, ignoreNode)
+    local payload = cloneValue(value, PAYLOAD_OPTS, 0, {}, ignoreNode, getTypeCursor(self._typeTree, path))
 
     if payload == nil then
         self:queueDelete(path)
@@ -399,7 +461,7 @@ function RootState:replaceInternal(newInternal)
 end
 
 local function payloadState(root)
-    return cloneValue(root._internal, PAYLOAD_OPTS, 0, {}, root._ignoreTree) or {}
+    return cloneValue(root._internal, PAYLOAD_OPTS, 0, {}, root._ignoreTree, root._typeTree) or {}
 end
 
 --- Raw table underneath. Writing here doesn't go to NUI.
@@ -616,12 +678,18 @@ end
 --- @field asTable fun(self: NuiState): table Raw table underneath; writes here do not go to NUI.
 
 --- Reactive NUI state. Writes on the proxy send a patch to NUI.
+--- Empty tables encode as JSON arrays (`[]`) unless listed in `types` as `"object"`.
 ---
 --- ```lua
 --- local player = LT.NUI.CreateState("UpdatePlayer", {
 ---     hud = { health = 100, armor = 100 },
+---     items = {},
+---     meta = {},
 ---     localOnly = { secret = "x" },
---- }, { "localOnly" })
+--- }, { "localOnly" }, {
+---     ["meta"] = "object",
+---     ["items.*.metadata"] = "object",
+--- })
 ---
 --- -- single field, message goes out now
 --- player.hud.health = 50
@@ -674,9 +742,10 @@ end
 --- @param action string e.g. `UpdatePlayer`
 --- @param initialTable? T
 --- @param ignoreList? string[] paths that never leave Lua
+--- @param types? table<string, "object"|"array"> dot paths; `*` = any segment; unmarked empty tables stay `[]`
 --- @return T|NuiState Reactive proxy; field writes and :update / :set / :sync push to NUI.
 --- @ltbridge export: CreateState
-function CreateNUIState(action, initialTable, ignoreList)
+function CreateNUIState(action, initialTable, ignoreList, types)
     ltassert(action and type(action) == "string", "action must be a non-empty string")
 
     local ignoreTree = createIgnoreNode()
@@ -684,6 +753,18 @@ function CreateNUIState(action, initialTable, ignoreList)
         for _, key in ipairs(ignoreList) do
             if type(key) == "string" and key ~= "" then
                 addIgnorePath(ignoreTree, key)
+            end
+        end
+    end
+
+    local typeTree = nil
+    if type(types) == "table" then
+        for path, jsonType in pairs(types) do
+            if type(path) == "string" and path ~= "" and (jsonType == "object" or jsonType == "array") then
+                if not typeTree then
+                    typeTree = createTypeNode()
+                end
+                addTypePath(typeTree, path, jsonType)
             end
         end
     end
@@ -697,6 +778,7 @@ function CreateNUIState(action, initialTable, ignoreList)
         _internal = internal,
         _action = action,
         _ignoreTree = ignoreTree,
+        _typeTree = typeTree,
         _batchPatch = {},
         _batchDeleteSet = {},
         _isTicking = false,
