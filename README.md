@@ -7,119 +7,90 @@
 [![GitHub License](https://img.shields.io/github/license/laot7490/ltbridge?style=flat&colorA=18181B&colorB=white)](https://github.com/laot7490/ltbridge/blob/main/LICENSE)
 [![Documentation](https://img.shields.io/badge/docs-GitBook-3884FF?style=flat&logo=gitbook&logoColor=white&colorA=18181B)](https://laot7490.gitbook.io/ltbridge)
 
-A next-generation **FiveM Script Bridge & Module Manager** designed to be incredibly fast, clean, and bloat-free.
+LTBridge is a command-line tool for FiveM scripts. You call `LT.*` in a resource, and it copies only the modules those calls need into that resource. It is not a server resource you `ensure`.
 
-Unlike traditional monolithic libraries that force every script to load hundreds of unused functions into memory, **LTBridge** acts as a smart build tool. It lets you maintain a central repository of your favorite utilities (like Inventory, Framework, Notify) and compiles **only the exact code you actually use** right into your FiveM resource.
+[Overview](#overview) · [Getting started](#getting-started) · [Commands](#commands) · [Docs](#docs)
 
-By eliminating slow cross-resource exports and memory bloat, LTBridge helps you build highly independent, lightning-fast scripts with a perfect development experience.
+## Overview
 
-## ✨ Why LTBridge?
+A shared library loads every helper into each script, including functions the script never calls. LTBridge copies in only the modules behind the `LT.*` calls you write. While you code, the watcher also pulls in anything those modules need and updates `fxmanifest.lua`.
 
-- **AOT Compilation:** Our Ahead-of-Time compiler bundles everything in under ~200 milliseconds, meaning zero waiting.
-- **Instant Intellisense:** Generates an `api.lua` stub file automatically. You get full autocomplete for everything as you type (`LT.Inventory.AddItem`).
-- **Smart Dependencies:** If a module needs another module, LTBridge automatically brings it in. No more missing functions.
-- **Live Watcher:** Just run `ltbridge build -w` and start coding. It detects what you type, bundles the necessary modules instantly, and updates your `fxmanifest.lua` on the fly.
+A longer explanation is in [What is LTBridge?](https://laot7490.gitbook.io/ltbridge/how-it-works/what-is-ltbridge).
 
-## 📦 Installation
+## What it covers
 
-Install the CLI tool globally using npm:
+The same calls work with the framework and resources already running on your server. LTBridge detects which one is started and uses it.
+
+- **Framework** — player data, jobs, and money on ESX, QBCore, and QBX
+- **Inventory** — add, remove, and check items
+- **Target** — zones and entity options
+- **Interface** — notify, menus, input, and progress bars
+- **World** — fuel, vehicle keys, dispatch, and phone
+
+See [Supported Resources](https://laot7490.gitbook.io/ltbridge/how-it-works/supported-resources) and the [Module Index](https://laot7490.gitbook.io/ltbridge/module-reference/module-index).
+
+## Getting started
+
+You need [Node.js](https://nodejs.org/) 18 or newer. From the resource folder (the one with `fxmanifest.lua`):
 
 ```bash
 npm install -g @laot/bridge
+ltbridge init
+ltbridge build -w
 ```
 
-Or run it directly via npx:
+`ltbridge init` asks a few questions and creates `ltbridge/config.json`. Leave the watcher running, then write your script:
 
-```bash
-npx @laot/bridge [command]
+```lua
+local firstname, lastname = LT.Framework.GetPlayerName()
+LT.Notify.Send('Welcome', 'Hello ' .. firstname .. ' ' .. lastname, 'success')
 ```
 
-## 🚀 Quick Start
+The watcher sees those calls, adds the modules, and updates the manifest. Build settings live in `ltbridge/config.json`. See [Configuration](https://laot7490.gitbook.io/ltbridge/daily-use/config).
 
-1. **Initialize** your project:
-   ```bash
-   ltbridge init
-   ```
-   *Follow the quick prompts to set up your preferences.*
+To run a command without installing the CLI, use `npx @laot/bridge`.
 
-2. **Start the Watcher**:
-   ```bash
-   ltbridge build -w
-   ```
-   *The watcher will run silently in the background and do all the heavy lifting.*
+The [Quick Start](https://laot7490.gitbook.io/ltbridge/getting-started/quick-start) walks through a first project from an empty resource to a working call.
 
-3. **Just Code**:
-   Use it in your script immediately. Everything else is automatic.
-   ```lua
-   local name, lastname = LT.Framework.GetPlayerName()
-   ```
+## Commands
 
-*For the full walkthrough, see [Quick Start on GitBook](https://laot7490.gitbook.io/ltbridge/getting-started/quick-start).*
+Run these from the resource folder. Flags and aliases are in [CLI Commands](https://laot7490.gitbook.io/ltbridge/cli/commands).
 
-## ⚙️ Configuration (`ltbridge/config.json`)
+| Command | What it does |
+| --- | --- |
+| `ltbridge init` | Set up LTBridge in this resource |
+| `ltbridge build -w` | Watch your scripts and update the build as you save |
+| `ltbridge build` | Rebuild once from the current config |
+| `ltbridge add <name>` | Add a module, such as `Notify` or `Target/*` |
+| `ltbridge remove <name>` | Remove a module |
+| `ltbridge list` | Show installed and available modules |
+| `ltbridge prune` | Remove modules your code no longer calls |
+| `ltbridge why <name>` | Show why a module is included |
+| `ltbridge api` | Regenerate the `ltbridge/api.lua` autocomplete stubs |
+| `ltbridge` | Open the module picker |
 
-When you run `init`, LTBridge creates a simple JSON config.
+## Docs
 
-| Setting | Default | Description |
-| --- | --- | --- |
-| `version` | CLI version | Written by the tool; used to detect CLI upgrades and refresh API stubs. |
-| `bundle` | `false` | Combine everything into 3 clean files (`shared`, `client`, `server`). Set to `true` for bundle mode. |
-| `debug` | `false` | Turn this on if you want to see internal debug prints from the modules. |
-| `minify` | `false` | Enables code optimization and global variable randomization for maximum performance. |
-| `modules` | `[]` | List of installed modules. The tool manages this automatically. |
+Documentation: [laot7490.gitbook.io/ltbridge](https://laot7490.gitbook.io/ltbridge)
 
-When you run `init`, LTBridge walks you through build mode, minify, debug, and an optional VS Code Lua ignoreDir setting.
+- [Installation](https://laot7490.gitbook.io/ltbridge/getting-started/installation)
+- [Quick Start](https://laot7490.gitbook.io/ltbridge/getting-started/quick-start)
+- [IDE Setup](https://laot7490.gitbook.io/ltbridge/getting-started/ide-setup)
+- [CLI Commands](https://laot7490.gitbook.io/ltbridge/cli/commands)
+- [Configuration](https://laot7490.gitbook.io/ltbridge/daily-use/config)
+- [Troubleshooting](https://laot7490.gitbook.io/ltbridge/daily-use/troubleshooting)
+- [Module Index](https://laot7490.gitbook.io/ltbridge/module-reference/module-index)
 
-## 🛠️ Commands
+`ltbridge init` can add `ltbridge/modules` to the Lua language server ignore list. You can also add it yourself. See [IDE Setup](https://laot7490.gitbook.io/ltbridge/getting-started/ide-setup).
 
-Full command reference with examples: [CLI Commands on GitBook](https://laot7490.gitbook.io/ltbridge/cli/commands).
+```json
+"Lua.workspace.ignoreDir": ["**/ltbridge/modules/**"]
+```
 
-| Command | Alias | Description |
-| --- | --- | --- |
-| `ltbridge` | - | **Interactive Menu**: Manage your modules visually. |
-| `ltbridge init` | - | Set up LTBridge in a new project (interactive prompts, then initial build). |
-| `ltbridge api` | - | Regenerate `ltbridge/api.lua` IDE stubs only. |
-| `ltbridge build` | `sync` | Build the project manually (use `-w` for live auto-build). |
-| `ltbridge add <name>` | - | Add a specific module manually (e.g., `Target/*`). |
-| `ltbridge remove <name>`| - | Remove a module. |
-| `ltbridge why <name>` | `explain` | See exactly why a module was automatically included. |
-| `ltbridge list` | - | View installed and available modules. |
-| `ltbridge prune` | - | Clean up unused modules from your code. |
+## Using it with an AI assistant
 
-## 🤖 AI / IDE Skill
+This repo ships an agent skill at [`skill/ltbridge`](skill/ltbridge/SKILL.md). Copy that folder into `.cursor/skills`, `.claude/skills`, or `.agents/skills`.
 
-The repo ships an agent skill at [`skill/ltbridge`](skill/ltbridge/SKILL.md) that teaches AI assistants how to use `LT.*` APIs and the `ltbridge` CLI in your resources. Copy the `ltbridge` folder into your IDE's skills directory:
+## Credits
 
-- Cursor: `.cursor/skills/ltbridge`
-- Claude Code: `.claude/skills/ltbridge`
-- Other agents: `.agents/skills/ltbridge`
-
-## 🤝 Contributing
-
-Got a cool function or utility? We'd love to have it! The system is designed so anyone can easily add new modules without touching complex configs.
-
-1. **Fork** the repository.
-2. **Create a folder** in `modules/` (e.g., `modules/@MyCategory/MyFunction`).
-3. **Write your code**:
-   - Put your code in `client.lua`, `server.lua`, or `shared.lua`.
-   - Write standard EmmyLua comments (`--- @param`, `--- @return`) for intellisense.
-4. **Submit a Pull Request**: We will review and merge it.
-
-### 🧠 Smart Annotations (`@ltbridge`)
-
-If you are developing modules, you can use special comments to tell the compiler what to do. The compiler reads these, applies them, and then completely deletes the comments from the final build.
-
-- `--- @ltbridge export: CustomName` - Change the exported name of the function.
-- `--- @ltbridge alias: AnotherName` - Create an alternative name for the same function.
-- `--- @ltbridge global` - Expose the function directly to the root `LT` object (e.g., `LT.SetResource`).
-
-## 🙏 Credits
-
-A huge thanks to the **[community_bridge](https://github.com/TheOrderFivem)** project for the inspiration behind some core concepts, and **[luamin.js](https://github.com/Herrtt/luamin.js/)** for the minification engine.
-
----
-> **💡 Tip:** To stop your IDE from trying to read the bundled output files (which can cause duplicate intellisense warnings), add this to your VSCode settings (`.vscode/settings.json`):
-> ```json
-> "Lua.workspace.ignoreDir": ["**/ltbridge/modules/**"]
-> ```
-> See also: [IDE Setup on GitBook](https://laot7490.gitbook.io/ltbridge/getting-started/ide-setup) for autocomplete and workspace configuration.
+Thanks to [community_bridge](https://github.com/TheOrderFivem) for some of the ideas behind LTBridge, and to [luamin.js](https://github.com/Herrtt/luamin.js) for the minifier.
