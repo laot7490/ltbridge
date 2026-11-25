@@ -45,13 +45,22 @@ test('standalone CLI maintains a resource from add to prune', () => {
   const executable = unpack(cwd);
   const standalone = (...args: string[]) => execFileSync(process.execPath, [executable, ...args], { cwd, encoding: 'utf8' });
   assert.equal(standalone('--version').trim(), version);
+  const help = standalone('--help');
+  assert.equal(standalone(), help);
+  assert.match(help, /Build Options:\s+-w, --watch[^\r\n]*\r?\n\s+-d, --details/);
+  assert.match(standalone('build', '--help'), /--watch[\s\S]*--details/);
   standalone('build');
   const output = path.join(cwd, 'ltbridge/modules');
   const custom = path.join(output, 'notes.lua');
   fs.writeFileSync(custom, 'return 42');
   run('add', 'Notify');
   assert.ok((run('why', 'Notify')).includes('explicitly added'));
-  assert.match(stripVTControlCharacters(run('list')), /^\s*✔ @Notify[ \t]*$/m);
+  const beforeSelection = fs.readFileSync(config, 'utf8');
+  const picker = execFileSync(process.execPath, [cli, 'list'], {
+    cwd, encoding: 'utf8', input: '\u0003', timeout: 5000,
+  });
+  assert.match(stripVTControlCharacters(picker), /Select LTBridge modules[\s\S]*Module selection cancelled/);
+  assert.equal(fs.readFileSync(config, 'utf8'), beforeSelection);
   assert.ok((fs.readFileSync(manifest, 'utf8')).includes('main.lua'));
   const generated = path.join(output, 'client.lua');
   const before = fs.statSync(generated).mtimeMs;
@@ -62,8 +71,17 @@ test('standalone CLI maintains a resource from add to prune', () => {
   assert.ok(!(fs.readFileSync(generated, 'utf8')).includes('\r'));
   run('api');
   assert.equal(fs.existsSync(path.join(cwd, 'ltbridge/api.lua')), true);
+  const stale = path.join(output, 'stale');
+  const nested = path.join(stale, 'nested');
+  fs.mkdirSync(nested, { recursive: true });
+  fs.copyFileSync(generated, path.join(nested, 'client.lua'));
+  const customFolder = path.join(output, 'custom');
+  fs.mkdirSync(customFolder);
+  fs.copyFileSync(custom, path.join(customFolder, 'notes.lua'));
   run('prune');
   assert.equal(fs.existsSync(generated), false);
+  assert.equal(fs.existsSync(stale), false);
+  assert.equal(fs.readFileSync(path.join(customFolder, 'notes.lua'), 'utf8'), 'return 42');
   assert.equal(fs.readFileSync(custom, 'utf8'), 'return 42');
   const saved = JSON.parse(fs.readFileSync(config, 'utf8'));
   assert.deepEqual(saved.modules, []);

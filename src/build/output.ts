@@ -59,6 +59,9 @@ export function pruneOutputs(root: string, outputs: Map<string, string>): void {
         fs.unlinkSync(file);
       }
     }
+    if (relative !== 'modules' && fs.readdirSync(folder).length === 0) {
+      fs.rmdirSync(folder);
+    }
   }
   if (fs.lstatSync(path.join(root, 'modules'), { throwIfNoEntry: false })?.isDirectory()) prune('modules');
 }

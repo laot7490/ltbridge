@@ -6,7 +6,7 @@ import { program } from 'commander';
 import { version } from '../../package.json';
 import { initProject, addModule, removeModule, refreshModules, pruneModules, watchProject, explainModule } from './commands';
 import { generateFullApi } from '../build/api';
-import { listModules, interactiveSelect } from './module-ui';
+import { interactiveSelect } from './module-ui';
 
 program
   .name('ltbridge')
@@ -21,7 +21,7 @@ program
     await initProject(cwd);
   });
 
-program
+const build = program
   .command('build')
   .alias('refresh')
   .alias('install')
@@ -37,6 +37,14 @@ program
       withProjectWrite(cwd, () => refreshModules(cwd, options));
     }
   });
+
+program.addHelpText('after', () => {
+  const options = build.options.filter((option) => !option.hidden);
+  const width = Math.max(...options.map((option) => option.flags.length));
+  return '\nBuild Options:\n' + options
+    .map((option) => '  ' + option.flags.padEnd(width) + '  ' + option.description)
+    .join('\n');
+});
 
 program
   .command('api')
@@ -72,10 +80,8 @@ program
 
 program
   .command('list')
-  .description('List installed and available modules')
-  .action(() => {
-    listModules(process.cwd());
-  });
+  .description('Select project modules interactively')
+  .action(() => interactiveSelect(process.cwd()));
 
 program
   .command('prune')
@@ -84,8 +90,8 @@ program
     withProjectWrite(process.cwd(), () => pruneModules(process.cwd()));
   });
 
-const run = process.argv.length <= 2 ? interactiveSelect(process.cwd()) : program.parseAsync(process.argv);
-run.catch((error) => {
+const args = process.argv.slice(2);
+program.parseAsync(args.length === 0 ? ['--help'] : args, { from: 'user' }).catch((error) => {
   console.error(error.message);
   process.exitCode = 1;
 });

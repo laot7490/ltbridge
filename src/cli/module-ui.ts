@@ -60,66 +60,6 @@ function getVisibleGroupModules(modsInGroup: ModuleEntry[], group: string) {
 }
 
 
-export function listModules(targetDir: string) {
-	const registry = getModuleRegistry();
-	const allModules = getVisibleModules();
-
-	const currentConfig = readProjectConfig(targetDir, true);
-
-	const installed = new Set(currentConfig?.modules ?? []);
-	const depsSet = getDependencySets(currentConfig ? currentConfig.modules : []);
-
-	const groups = buildModuleGroups(allModules, registry);
-	const allModulesSet = new Set(Object.entries(groups).flatMap(([group, modules]) => getVisibleGroupModules(modules, group).map(({ mod }) => mod)));
-	const visibleInstalled = new Set([...installed].filter((m) => allModulesSet.has(m)));
-	const visibleDeps = new Set([...depsSet].filter((m) => allModulesSet.has(m) && !visibleInstalled.has(m)));
-
-	const totalActiveSize = visibleInstalled.size + visibleDeps.size;
-
-	console.log(
-		`\n\x1b[1m\x1b[36mℹ LTBridge Modules List (${visibleInstalled.size} manual + ${visibleDeps.size} auto = ${totalActiveSize} active / ${allModulesSet.size} total)\x1b[0m\n`,
-	);
-
-	if (allModules.length === 0) {
-		console.log("  No modules found in the repository.");
-		return;
-	}
-
-	
-	for (const group of Object.keys(groups).sort()) {
-		console.log(`\n  \x1b[1m\x1b[35m📁 ${group}\x1b[0m`);
-
-		const sortedMods = getVisibleGroupModules(groups[group], group);
-
-		for (const { mod, name } of sortedMods) {
-			const isInstalled = installed.has(mod);
-			const isDep = depsSet.has(mod);
-
-			let icon = " ";
-			let color = "\x1b[90m";
-
-			if (isInstalled) {
-				icon = "✔";
-				color = "\x1b[32m";
-			} else if (isDep) {
-				icon = "⚙";
-				color = "\x1b[33m";
-			}
-
-			process.stdout.write(`    ${color}${icon} ${name.padEnd(30)}\x1b[0m`);
-
-			if (isDep && !isInstalled) {
-				process.stdout.write(` \x1b[90m⚙ Auto-Dependency\x1b[0m`);
-			} else if (isDep && isInstalled) {
-				process.stdout.write(` \x1b[90m(Also a Dependency)\x1b[0m`);
-			}
-			process.stdout.write("\n");
-		}
-	}
-
-	console.log(`\n\x1b[90m(✔ = Installed | ⚙ = Auto Dependency)\x1b[0m\n`);
-}
-
 export async function interactiveSelect(targetDir: string) {
 	const registry = getModuleRegistry();
 	const allModules = getVisibleModules();
