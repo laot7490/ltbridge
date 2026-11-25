@@ -1,96 +1,82 @@
+<div align="center">
+
 # LTBridge
 
-[![npm version](https://img.shields.io/npm/v/@laot/bridge?style=flat&colorA=18181B&colorB=28CF8D&logo=npm)](https://www.npmjs.com/package/@laot/bridge)
-[![npm downloads](https://img.shields.io/npm/dt/@laot/bridge?style=flat&colorA=18181B&colorB=28CF8D&logo=npm)](https://www.npmjs.com/package/@laot/bridge)
-[![GitHub Release Date](https://img.shields.io/github/release-date/laot7490/ltbridge?style=flat&colorA=18181B&colorB=a855f7)](https://github.com/laot7490/ltbridge/releases)
-[![GitHub contributors](https://img.shields.io/github/contributors/laot7490/ltbridge?style=flat&colorA=18181B&colorB=f59e0b)](https://github.com/laot7490/ltbridge/graphs/contributors)
-[![GitHub License](https://img.shields.io/github/license/laot7490/ltbridge?style=flat&colorA=18181B&colorB=white)](https://github.com/laot7490/ltbridge/blob/main/LICENSE)
-[![Documentation](https://img.shields.io/badge/docs-GitBook-3884FF?style=flat&logo=gitbook&logoColor=white&colorA=18181B)](https://laot7490.gitbook.io/ltbridge)
+**A simpler way to use framework and resource APIs in your FiveM scripts.**
 
-LTBridge is a command-line tool for FiveM scripts. You call `LT.*` in a resource, and it copies only the modules those calls need into that resource. It is not a server resource you `ensure`.
+[![npm version](https://img.shields.io/npm/v/@laot/bridge?style=for-the-badge&color=FFA500&logo=npm)](https://www.npmjs.com/package/@laot/bridge)
+[![npm downloads](https://img.shields.io/npm/dt/@laot/bridge?style=for-the-badge&color=28CF8D&logo=npm)](https://www.npmjs.com/package/@laot/bridge)
+[![Documentation](https://img.shields.io/badge/docs-GitBook-3884FF?style=for-the-badge&logo=gitbook&logoColor=white)](https://laot7490.gitbook.io/ltbridge)
 
-[Overview](#overview) · [Getting started](#getting-started) · [Commands](#commands) · [Docs](#docs)
+[Quick Start](https://laot7490.gitbook.io/ltbridge/getting-started/quick-start) · [Documentation](https://laot7490.gitbook.io/ltbridge) · [Report an issue](https://github.com/laot7490/ltbridge/issues)
 
-## Overview
+</div>
 
-A shared library loads every helper into each script, including functions the script never calls. LTBridge copies in only the modules behind the `LT.*` calls you write. While you code, the watcher also pulls in anything those modules need and updates `fxmanifest.lua`.
+LTBridge provides a shared Lua API for supported FiveM frameworks and resources. It adds the modules your scripts use to your resource, so there is no LTBridge server resource to install or start.
 
-A longer explanation is in [What is LTBridge?](https://laot7490.gitbook.io/ltbridge/how-it-works/what-is-ltbridge).
+## Get started
 
-## What it covers
+LTBridge 2.0 requires Node.js 22.14.0 or later. GitHub release archives now use `.tar.gz`. Extract the archive and run `node <extracted-directory>/package/dist/ltbridge.js` from your resource.
 
-The same calls work with the framework and resources already running on your server. LTBridge detects which one is started and uses it.
-
-- **Framework** — player data, jobs, and money on ESX, QBCore, and QBX
-- **Inventory** — add, remove, and check items
-- **Target** — zones and entity options
-- **Interface** — notify, menus, input, and progress bars
-- **World** — fuel, vehicle keys, dispatch, and phone
-
-See [Supported Resources](https://laot7490.gitbook.io/ltbridge/how-it-works/supported-resources) and the [Module Index](https://laot7490.gitbook.io/ltbridge/module-reference/module-index).
-
-## Getting started
-
-You need [Node.js](https://nodejs.org/) 18 or newer. From the resource folder (the one with `fxmanifest.lua`):
+Install the CLI, then run it from your resource folder (the folder containing `fxmanifest.lua`):
 
 ```bash
 npm install -g @laot/bridge
 ltbridge init
-ltbridge build -w
+ltbridge build --watch
 ```
 
-`ltbridge init` asks a few questions and creates `ltbridge/config.json`. Leave the watcher running, then write your script:
+The setup wizard creates the project configuration and builds the initial files. Keep the watcher running as you work. It detects LTBridge calls in your Lua scripts and updates the generated files when needed.
+
+For a first project walkthrough, see the [Quick Start](https://laot7490.gitbook.io/ltbridge/getting-started/quick-start).
+
+## Example
+
+Call an API from your Lua script:
 
 ```lua
 local firstname, lastname = LT.Framework.GetPlayerName()
 LT.Notify.Send('Welcome', 'Hello ' .. firstname .. ' ' .. lastname, 'success')
 ```
 
-The watcher sees those calls, adds the modules, and updates the manifest. Build settings live in `ltbridge/config.json`. See [Configuration](https://laot7490.gitbook.io/ltbridge/daily-use/config).
+LTBridge detects the calls and includes the required modules in your resource. The same API can work across supported frameworks and resources.
 
-To run a command without installing the CLI, use `npx @laot/bridge`.
+## Common commands
 
-The [Quick Start](https://laot7490.gitbook.io/ltbridge/getting-started/quick-start) walks through a first project from an empty resource to a working call.
+Run commands from the resource folder:
 
-## Commands
+| Command                  | Description                                                                     |
+| ------------------------ | ------------------------------------------------------------------------------- |
+| `ltbridge init`          | Set up LTBridge and create the project configuration                            |
+| `ltbridge build`         | Rebuild the resource files and API stubs from the current configuration         |
+| `ltbridge build --watch` | Keep watching Lua scripts and rebuild when LTBridge calls change                |
+| `ltbridge add <name>`    | Add a module to the project, such as `Notify` or `Target/*`                     |
+| `ltbridge remove <name>` | Remove a module from the project                                                |
+| `ltbridge list`          | Show available modules and those configured for the project                     |
+| `ltbridge prune`         | Scan scripts and remove configured modules that are no longer used              |
+| `ltbridge why <name>`    | Explain whether a module is included directly or as another module's dependency |
+| `ltbridge api`           | Regenerate Lua API stubs for editor autocomplete                                |
 
-Run these from the resource folder. Flags and aliases are in [CLI Commands](https://laot7490.gitbook.io/ltbridge/cli/commands).
+Run `ltbridge` without a command to open the interactive module picker. For command options and aliases, see [CLI Commands](https://laot7490.gitbook.io/ltbridge/cli/commands). For setup and configuration details, see the [documentation](https://laot7490.gitbook.io/ltbridge).
 
-| Command | What it does |
-| --- | --- |
-| `ltbridge init` | Set up LTBridge in this resource |
-| `ltbridge build -w` | Watch your scripts and update the build as you save |
-| `ltbridge build` | Rebuild once from the current config |
-| `ltbridge add <name>` | Add a module, such as `Notify` or `Target/*` |
-| `ltbridge remove <name>` | Remove a module |
-| `ltbridge list` | Show installed and available modules |
-| `ltbridge prune` | Remove modules your code no longer calls |
-| `ltbridge why <name>` | Show why a module is included |
-| `ltbridge api` | Regenerate the `ltbridge/api.lua` autocomplete stubs |
-| `ltbridge` | Open the module picker |
+## Integrations
 
-## Docs
+Use a common API for framework data, inventory, targets, notifications, menus, input, progress bars, fuel, vehicle keys, dispatch, and phone integrations.
 
-Documentation: [laot7490.gitbook.io/ltbridge](https://laot7490.gitbook.io/ltbridge)
+Browse [supported resources](https://laot7490.gitbook.io/ltbridge/how-it-works/supported-resources) and the [module index](https://laot7490.gitbook.io/ltbridge/module-reference/module-index).
 
-- [Installation](https://laot7490.gitbook.io/ltbridge/getting-started/installation)
-- [Quick Start](https://laot7490.gitbook.io/ltbridge/getting-started/quick-start)
-- [IDE Setup](https://laot7490.gitbook.io/ltbridge/getting-started/ide-setup)
-- [CLI Commands](https://laot7490.gitbook.io/ltbridge/cli/commands)
-- [Configuration](https://laot7490.gitbook.io/ltbridge/daily-use/config)
-- [Troubleshooting](https://laot7490.gitbook.io/ltbridge/daily-use/troubleshooting)
-- [Module Index](https://laot7490.gitbook.io/ltbridge/module-reference/module-index)
+## Documentation
 
-`ltbridge init` can add `ltbridge/modules` to the Lua language server ignore list. You can also add it yourself. See [IDE Setup](https://laot7490.gitbook.io/ltbridge/getting-started/ide-setup).
+Read the [LTBridge documentation](https://laot7490.gitbook.io/ltbridge) for installation, configuration, IDE setup, and troubleshooting.
 
-```json
-"Lua.workspace.ignoreDir": ["**/ltbridge/modules/**"]
-```
+## AI assistant skill
 
-## Using it with an AI assistant
-
-This repo ships an agent skill at [`skill/ltbridge`](skill/ltbridge/SKILL.md). Copy that folder into `.cursor/skills`, `.claude/skills`, or `.agents/skills`.
+This repository includes an [LTBridge skill](skill/ltbridge/SKILL.md) for AI coding assistants. Copy the `skill/ltbridge` folder into your assistant's skills directory to use it.
 
 ## Credits
 
 Thanks to [community_bridge](https://github.com/TheOrderFivem) for some of the ideas behind LTBridge, and to [luamin.js](https://github.com/Herrtt/luamin.js) for the minifier.
+
+## License
+
+LTBridge is available under the [MIT License](LICENSE).
