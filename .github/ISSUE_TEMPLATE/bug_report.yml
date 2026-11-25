@@ -1,0 +1,72 @@
+name: Bug report
+description: Report a problem with LTBridge.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Share enough detail for us to reproduce the problem. Remove any secrets
+        or personal information from logs before posting them.
+  - type: input
+    id: ltbridge-version
+    attributes:
+      label: LTBridge version
+      description: The version shown by `ltbridge --version`.
+      placeholder: 2.0.1
+    validations:
+      required: true
+  - type: input
+    id: operating-system
+    attributes:
+      label: Operating system and version
+      placeholder: Windows 11 24H2, Ubuntu 24.04, or macOS 15.1
+    validations:
+      required: true
+  - type: input
+    id: node-version
+    attributes:
+      label: Node.js version
+      description: The version shown by `node --version`.
+      placeholder: v22.14.0
+    validations:
+      required: true
+  - type: input
+    id: fxserver-version
+    attributes:
+      label: FXServer version (if relevant)
+      description: Leave blank if this issue is unrelated to an FXServer runtime.
+      placeholder: 12345
+    validations:
+      required: false
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: Steps to reproduce
+      description: List the commands or actions that trigger the problem.
+      placeholder: |
+        1. Run ...
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: Actual behavior
+      description: What happened instead? Include relevant error output.
+    validations:
+      required: true
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: Add logs or other details that may help investigate.
+      render: shell
+    validations:
+      required: false
