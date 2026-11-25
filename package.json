@@ -1,6 +1,6 @@
 {
 	"name": "@laot/bridge",
-	"version": "1.4.2",
+	"version": "2.0.0",
 	"description": "LTBridge CLI for fetching and bundling FiveM modules.",
 	"license": "MIT",
 	"repository": {
@@ -21,26 +21,36 @@
 		"ltbridge"
 	],
 	"main": "dist/ltbridge.js",
+	"engines": {
+		"node": ">=22.14.0"
+	},
 	"scripts": {
-		"build": "node scripts/compiler.js && esbuild bin/ltbridge.js --bundle --minify --platform=node --target=node18 --packages=external --outfile=dist/ltbridge.js",
-		"zip": "node scripts/zip-dist.js",
-		"prepublishOnly": "npm run build && npm run zip"
+		"build": "esbuild scripts/compile.ts --bundle --platform=node --target=node22 --outfile=dist/compiler.cjs && node dist/compiler.cjs && esbuild src/cli/index.ts --bundle --minify --platform=node --target=node22 --outfile=dist/ltbridge.js",
+		"test": "npm run build && esbuild tests/*.test.ts --bundle --platform=node --target=node22 --packages=external --out-extension:.js=.cjs --outdir=dist/tests && node --test \"dist/tests/*.test.cjs\"",
+		"typecheck": "tsc --noEmit",
+		"prepublishOnly": "npm run build",
+		"version": "npm version --no-git-tag-version --ignore-scripts"
 	},
 	"bin": {
 		"ltbridge": "./dist/ltbridge.js"
 	},
 	"files": [
-		"dist",
+		"dist/ltbridge.js",
+		"dist/modules.dat",
+		"dist/THIRD_PARTY_NOTICES.txt",
 		"LICENSE",
 		"README.md"
 	],
-	"dependencies": {
-		"chokidar": "^5.0.0",
-		"commander": "^11.0.0",
-		"fs-extra": "^11.1.1",
-		"prompts": "^2.4.2"
-	},
 	"devDependencies": {
-		"esbuild": "^0.25.0"
+		"@types/node": "^22.0.0",
+		"@types/prompts": "^2.4.9",
+		"chokidar": "^5.0.0",
+		"commander": "^15.1.0",
+		"esbuild": "^0.28.2",
+		"prompts": "^2.4.2",
+		"typescript": "6.0.3"
+	},
+	"allowScripts": {
+		"esbuild@0.28.2": true
 	}
 }
