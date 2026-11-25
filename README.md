@@ -16,8 +16,6 @@ LTBridge provides a shared Lua API for supported FiveM frameworks and resources.
 
 ## Get started
 
-LTBridge 2.0 requires Node.js 22.14.0 or later. GitHub release archives now use `.tar.gz`. Extract the archive and run `node <extracted-directory>/package/dist/ltbridge.js` from your resource.
-
 Install the CLI, then run it from your resource folder (the folder containing `fxmanifest.lua`):
 
 ```bash
