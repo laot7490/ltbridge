@@ -47,15 +47,15 @@ Run commands from the resource folder:
 | ------------------------ | ------------------------------------------------------------------------------- |
 | `ltbridge init`          | Set up LTBridge and create the project configuration                            |
 | `ltbridge build`         | Rebuild the resource files and API stubs from the current configuration         |
-| `ltbridge build --watch` | Keep watching Lua scripts and rebuild when LTBridge calls change                |
+| `ltbridge build -w` | Keep watching Lua scripts and rebuild when LTBridge calls change                |
 | `ltbridge add <name>`    | Add a module to the project, such as `Notify` or `Target/*`                     |
 | `ltbridge remove <name>` | Remove a module from the project                                                |
-| `ltbridge list`          | Show available modules and those configured for the project                     |
+| `ltbridge list`          | Opens interactive module selection menu                     |
 | `ltbridge prune`         | Scan scripts and remove configured modules that are no longer used              |
 | `ltbridge why <name>`    | Explain whether a module is included directly or as another module's dependency |
 | `ltbridge api`           | Regenerate Lua API stubs for editor autocomplete                                |
 
-Run `ltbridge` without a command to open the interactive module picker. For command options and aliases, see [CLI Commands](https://laot7490.gitbook.io/ltbridge/cli/commands). For setup and configuration details, see the [documentation](https://laot7490.gitbook.io/ltbridge).
+For command options and aliases, see [CLI Commands](https://laot7490.gitbook.io/ltbridge/cli/commands). For setup and configuration details, see the [documentation](https://laot7490.gitbook.io/ltbridge).
 
 ## Integrations
 
