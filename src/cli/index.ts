@@ -1,8 +1,12 @@
 #!/usr/bin/env node
 
-const { program } = require('commander');
-const { version } = require('../package.json');
-const { initProject, addModule, removeModule, refreshModules, pruneModules, watchProject, generateFullApi, listModules, interactiveSelect, explainModule } = require('../src/index');
+import { withProjectWrite } from '../project/config';
+
+import { program } from 'commander';
+import { version } from '../../package.json';
+import { initProject, addModule, removeModule, refreshModules, pruneModules, watchProject, explainModule } from './commands';
+import { generateFullApi } from '../build/api';
+import { listModules, interactiveSelect } from './module-ui';
 
 program
   .name('ltbridge')
@@ -30,7 +34,7 @@ program
     if (options.watch) {
       watchProject(cwd, options);
     } else {
-      refreshModules(cwd, options);
+      withProjectWrite(cwd, () => refreshModules(cwd, options));
     }
   });
 
@@ -40,29 +44,29 @@ program
   .action(() => {
     const cwd = process.cwd();
     console.log(`\n\x1b[36m⚡ ltbridge\x1b[0m \x1b[32mRegenerating API stubs...\x1b[0m`);
-    generateFullApi(cwd);
+    withProjectWrite(cwd, () => generateFullApi(cwd));
     console.log(`\x1b[32m✓ API reference successfully updated.\x1b[0m\n`);
   });
 
 program
   .command('add <name>')
   .description('Add a module to your project')
-  .action((name) => {
-    addModule(process.cwd(), name);
+  .action((name: string) => {
+    withProjectWrite(process.cwd(), () => addModule(process.cwd(), name));
   });
 
 program
   .command('remove <name>')
   .description('Remove a module from your project')
-  .action((name) => {
-    removeModule(process.cwd(), name);
+  .action((name: string) => {
+    withProjectWrite(process.cwd(), () => removeModule(process.cwd(), name));
   });
 
 program
   .command('why <name>')
   .alias('explain')
   .description('Explain why a module is included in your project (dependency graph)')
-  .action((name) => {
+  .action((name: string) => {
     explainModule(process.cwd(), name);
   });
 
@@ -77,11 +81,11 @@ program
   .command('prune')
   .description('Prune unused modules from your project bundles')
   .action(() => {
-    pruneModules(process.cwd());
+    withProjectWrite(process.cwd(), () => pruneModules(process.cwd()));
   });
 
-if (process.argv.length <= 2) {
-  interactiveSelect(process.cwd());
-} else {
-  program.parse(process.argv);
-}
+const run = process.argv.length <= 2 ? interactiveSelect(process.cwd()) : program.parseAsync(process.argv);
+run.catch((error) => {
+  console.error(error.message);
+  process.exitCode = 1;
+});
