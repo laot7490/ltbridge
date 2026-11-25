@@ -1,6 +1,16 @@
 <div align="center">
 
-# LTBridge
+<picture>
+  <source
+    srcset="logos/ltbridge-white.png"
+    media="(prefers-color-scheme: dark)"
+  />
+  <source
+    srcset="logos/ltbridge-dark.png"
+    media="(prefers-color-scheme: light), (prefers-color-scheme: no-preference)"
+  />
+  <img src="logos/ltbridge-dark.png" height="128" />
+</picture>
 
 A simpler way to use framework and resource APIs in your FiveM scripts.
 
