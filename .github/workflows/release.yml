@@ -1,0 +1,64 @@
+name: Check and release
+
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev, main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    strategy:
+      matrix:
+        node: ['22.14.0', '22']
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm audit --package-lock-only
+
+  release:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'laot7490/ltbridge'
+    needs: check
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ltbridge-release
+      queue: max
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - run: npm ci
+      - name: Install git-cliff
+        shell: bash
+        run: |
+          asset=git-cliff-2.14.2-x86_64-unknown-linux-gnu.tar.gz
+          curl --fail --silent --show-error --location "https://github.com/orhun/git-cliff/releases/download/v2.14.2/$asset" --output "$RUNNER_TEMP/$asset"
+          echo "24f397c733add5390fdceee3a2088588ab0d5f944ce00d34cb7029b888cf2db4  $RUNNER_TEMP/$asset" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/$asset" -C "$RUNNER_TEMP" --strip-components=1 git-cliff-2.14.2/git-cliff
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+      - name: Publish pending version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          npx --no-install esbuild scripts/publish-release.ts --bundle --platform=node --outfile="$RUNNER_TEMP/publish-release.cjs"
+          node "$RUNNER_TEMP/publish-release.cjs"
