@@ -2,9 +2,9 @@
 --- If timeout is reached and no value is returned, the function returns `nil`.
 --- @generic T
 --- @param cb fun(): T?
---- @param timeout number? Timeout in milliseconds. Default: `1000` ms, unless set to `false`.
+--- @param timeout? number|false Timeout in milliseconds. Default: `1000` ms. Use `false` to disable the timeout.
 --- @param interval number? Interval in milliseconds to check the condition. Default: `0` ms.
---- @return T
+--- @return T|nil
 --- @ltbridge global
 function WaitFor(cb, timeout, interval)
     interval = interval or 0

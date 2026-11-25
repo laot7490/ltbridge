@@ -3,40 +3,42 @@ name: ltbridge
 description: >-
   Work with LTBridge in FiveM resources: use LT.* APIs from ltbridge/api.lua,
   respect CLIENT/SERVER/SHARED stubs, avoid duplicate utilities and direct
-  framework/inventory/ox calls, and manage the bridge with the globally installed
-  ltbridge CLI (@laot/bridge via npm/pnpm -g, ltbridge init, ltbridge build -w,
-  add, remove, prune). Use when a resource has an ltbridge/ folder, api.lua,
-  ltbridge/config.json, or uses the LT namespace (notify, inventory, framework,
-  progress, target, callbacks, events).
+  framework/inventory/ox calls, and manage it with the @laot/bridge CLI (global
+  install or npx). Use when a resource has an ltbridge/ folder, api.lua,
+  ltbridge/config.json, or uses the LT namespace.
 ---
 
 # LTBridge
 
-LTBridge is a build tool, not a dependency resource. The CLI compiles only the modules a resource uses into `ltbridge/modules/` and injects them into `fxmanifest.lua`.
+LTBridge is a build tool, not a dependency resource. The CLI compiles only the modules a resource uses into `ltbridge/modules/` and updates the resource manifest.
 
 ## When this applies
 
 Any of these:
 
 1. The resource has an `ltbridge/` folder (`ltbridge/config.json`, `ltbridge/api.lua`).
-2. `fxmanifest.lua` loads `ltbridge/modules/*.lua`.
+2. `fxmanifest.lua` or `__resource.lua` loads `ltbridge/modules/*.lua`.
 3. Code uses the `LT.` namespace.
 
 If none match, don't assume LTBridge.
 
-## CLI install (global only)
+## CLI installation
 
-The CLI is the `@laot/bridge` npm package, binary name `ltbridge`. Always use a **global** install.
+LTBridge is the `@laot/bridge` npm package, requires Node.js 22.14.0 or later, and can be installed globally or run with `npx`.
 
 ```bash
-ltbridge --version              # check first, install only if missing
-npm i -g @laot/bridge           # or: pnpm add -g @laot/bridge
-npm i -g @laot/bridge@latest    # update (pnpm add -g @laot/bridge@latest)
+npm install -g @laot/bridge     # recommended
+ltbridge --version
+npx @laot/bridge <command>      # without a global install
 ```
 
-- Fallback only if a global install is impossible: `npx @laot/bridge <cmd>` / `pnpm dlx @laot/bridge <cmd>`.
+- Use the global `ltbridge` command when installed; prefix commands with `npx @laot/bridge` otherwise.
 - Never add `@laot/bridge` as a project dependency. Never create a `package.json`, lockfile or npm scripts inside a FiveM resource for LTBridge.
-- Run every command from the resource root (the folder with `fxmanifest.lua`).
+- Run every command from the resource root (the folder with `fxmanifest.lua` or `__resource.lua`).
+
+## Documentation and API lookup
+
+Use the [LTBridge documentation](https://laot7490.gitbook.io/ltbridge) for current setup and behavior. Read the relevant page for [quick start](https://laot7490.gitbook.io/ltbridge/getting-started/quick-start), [commands](https://laot7490.gitbook.io/ltbridge/daily-use/commands), [configuration](https://laot7490.gitbook.io/ltbridge/daily-use/config), [IDE setup](https://laot7490.gitbook.io/ltbridge/getting-started/ide-setup), [supported resources](https://laot7490.gitbook.io/ltbridge/how-it-works/supported-resources), or the [module index](https://laot7490.gitbook.io/ltbridge/module-reference/modules). For exact signatures and side-specific availability in a resource, use that resource's generated `ltbridge/api.lua`, which matches its installed CLI version.
 
 ## Commands
 
@@ -49,7 +51,7 @@ npm i -g @laot/bridge@latest    # update (pnpm add -g @laot/bridge@latest)
 | `ltbridge remove <name>` | Remove a module and rebuild. Same name formats. |
 | `ltbridge prune` | Remove modules no longer used in code, then rebuild. |
 | `ltbridge why <name>` | Show why a module is included (manual or dependency). Alias: `explain`. |
-| `ltbridge list` | List installed, auto-dependency and available modules. |
+| `ltbridge list` | Interactive picker to select or deselect modules. |
 | `ltbridge api` | Regenerate `ltbridge/api.lua` only. |
 | `ltbridge` | Interactive module picker. |
 
@@ -59,6 +61,7 @@ npm i -g @laot/bridge@latest    # update (pnpm add -g @laot/bridge@latest)
 - `ltbridge build -w` is long-running. If the user already has it running, just write code and let it pick up `LT.*` calls. Never start a second watcher; if you start one, run it in the background.
 - No watcher running? After adding new `LT.*` calls run `ltbridge add <name>` for each new module. After removing usages run `ltbridge prune`.
 - Plain `ltbridge build` won't pick up new `LT.*` calls on its own.
+- The watcher and `prune` detect static `LT.*` references, not dynamic indexing such as `LT.Inventory[method]`. Add dynamically accessed modules explicitly and retain them when pruning.
 - Use `ltbridge why <name>` / `ltbridge list` instead of guessing what's installed.
 
 ## Generated files (don't edit by hand)
@@ -67,9 +70,9 @@ npm i -g @laot/bridge@latest    # update (pnpm add -g @laot/bridge@latest)
 |------|-------|
 | `ltbridge/modules/**` | Build output. Never edit; changes are overwritten. |
 | `ltbridge/config.json` | `bundle`, `minify`, `debug` can be edited. `modules` and `version` are managed by the CLI. |
-| `ltbridge/api.lua` | IDE stubs for **all** available modules, not just installed ones. Never load it in `fxmanifest.lua`. |
+| `ltbridge/api.lua` | IDE stubs for **all** available modules, not just installed ones. Never load it in the resource manifest. |
 
-The CLI injects and removes these manifest entries itself, so don't add or remove them manually:
+The CLI updates these manifest entries itself, so don't add or remove them manually:
 
 - `shared_scripts` / `client_scripts` / `server_scripts` → `'ltbridge/modules/shared.lua'`, `client.lua`, `server.lua`
 - `files` → `'ltbridge/modules/imports/**/*.lua'` (individual build mode)
@@ -79,10 +82,10 @@ Never add `dependency 'ltbridge'`. The bridge is embedded in the resource.
 
 ## Finding an API
 
-`ltbridge/api.lua` is the single source of truth.
+Use the generated `ltbridge/api.lua` as the source of truth for the resource's installed LTBridge version; use the [module index](https://laot7490.gitbook.io/ltbridge/module-reference/modules) to discover categories and the GitBook module pages for usage details.
 
 1. Figure out the script side: `client/**`, `server/**` or shared.
-2. Map the need to a module (table below).
+2. Find a likely module category in the linked module index.
 3. Grep `api.lua` for `LT.<Module>.<Method>`.
 4. Read the stub: the tag `` **`MODULE` `CLIENT|SERVER|SHARED`** ``, `@param` / `@return`, and the embedded ```` ```lua ```` example.
 5. Call it with the documented signature. Prefer the stub example over inventing usage.
@@ -118,40 +121,7 @@ end)
 LT.Events.EmitNet('buyResult', src, true)
 ```
 
-## Module map
-
-| Need | Module |
-|------|--------|
-| Alert / confirm dialog | `LT.Alert` |
-| Blips | `LT.Blip` |
-| Ped, vehicle, seat, coords cache | `LT.Cache` |
-| Server-side cooldowns | `LT.Cooldown` |
-| Player load / unload | `LT.OnPlayerLoad`, `LT.OnPlayerUnload` |
-| State bags / player state | `LT.State` |
-| Server/client callbacks | `LT.Callback` |
-| Namespaced events | `LT.Events` |
-| Jobs, money, hunger, player data | `LT.Framework` |
-| Fuel | `LT.Fuel` |
-| Resource start/stop hooks | `LT.Hooks` |
-| Input dialog | `LT.Input` |
-| Items, stash, open inventory, carry checks | `LT.Inventory` |
-| Locale | `LT.Locale` |
-| Logging / debug | `LT.Logger`, `LT.Debug` |
-| Menus | `LT.Menu` |
-| NUI focus, callbacks, messages | `LT.NUI` |
-| Notifications | `LT.Notify` |
-| Progress bar / circle | `LT.Progress` |
-| Target systems | `LT.Target` |
-| Text UI | `LT.TextUI` |
-| Closest player/vehicle/object, area scan | `LT.Utils` |
-| Table / string / math helpers | `LT.Table`, `LT.String`, `LT.Math`, `LT.Helpers` |
-| Vehicle keys | `LT.VehicleKeys` |
-| Dispatch | `LT.Dispatch` |
-| Phone | `LT.Phone` |
-| Model / anim dict loading | `LT.Streaming` |
-| Version checks | `LT.Version` |
-
-`GetResource` / `SetResource` are for bridge provider config. Consumer scripts call the high-level `LT.*` methods.
+Supported adapters are detected at runtime. Make sure the relevant framework or provider resource starts before the resource using LTBridge; see [Supported Resources](https://laot7490.gitbook.io/ltbridge/how-it-works/supported-resources) for the current list.
 
 ## Don't
 
@@ -188,4 +158,4 @@ exports.ox_lib:notify({ ... })            -- use LT.Notify
 - [ ] Removed usages cleaned up with `ltbridge prune` (watcher does not auto-remove).
 - [ ] No manual edits under `ltbridge/modules/` or to LTBridge manifest entries.
 - [ ] No duplicate helpers, no direct third-party calls where `LT.*` exists.
-- [ ] CLI used globally, no `package.json` / npm deps added to the resource.
+- [ ] CLI run globally or through `npx`; no `package.json` / npm deps added to the resource.
