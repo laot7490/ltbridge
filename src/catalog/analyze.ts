@@ -1,20 +1,21 @@
-const { pickExportModule } = require("./resolveExport");
+import { stripLuaForScan } from "../lua/source";
+import { pickExportModule } from "./exports";
+import { SIDES, type ModuleDatabase } from "./database";
 
-function analyzeModuleDependencies(modName, { exportMap, registry, modules }) {
+export function analyzeModuleDependencies(modName: string, { exportMap, registry, modules }: ModuleDatabase & { exportMap: Record<string, string[]> }) {
 	const modData = modules[modName];
 	if (!modData) return [];
 
-	const availableModules = Object.keys(registry);
-	const dependencies = new Set();
+	const hasModule = (name: string) => Object.hasOwn(registry, name);
+	const lookup = (name: string) => modules[name];
+	const dependencies = new Set<string>();
 
 	let combinedCode = "";
-	["shared", "client", "server"].forEach((file) => {
-		if (modData[file] && modData[file].code) {
-			combinedCode += modData[file].code + "\n";
-		}
-	});
+	for (const side of SIDES) combinedCode += (modData[side]?.code ?? "") + "\n";
 
-	function addCallDependencies(fullPath) {
+	combinedCode = stripLuaForScan(combinedCode);
+
+	function addCallDependencies(fullPath: string) {
 		const parts = fullPath.split(".");
 		let current = "";
 
@@ -23,16 +24,16 @@ function analyzeModuleDependencies(modName, { exportMap, registry, modules }) {
 			const pathForm = "@" + current.replace(/\./g, "/");
 			const rawPathForm = current.replace(/\./g, "/");
 
-			if (availableModules.includes(pathForm) && pathForm !== modName) {
+			if (hasModule(pathForm) && pathForm !== modName) {
 				dependencies.add(pathForm);
-			} else if (availableModules.includes(rawPathForm) && rawPathForm !== modName) {
+			} else if (hasModule(rawPathForm) && rawPathForm !== modName) {
 				dependencies.add(rawPathForm);
-			} else if (availableModules.includes(current) && current !== modName) {
+			} else if (hasModule(current) && current !== modName) {
 				dependencies.add(current);
 			}
 
 			if (exportMap && exportMap[current]) {
-				const finalMatch = pickExportModule(current, exportMap[current]);
+				const finalMatch = pickExportModule(current, exportMap[current], lookup);
 				if (finalMatch && finalMatch !== modName) dependencies.add(finalMatch);
 			}
 		}
@@ -63,10 +64,10 @@ function analyzeModuleDependencies(modName, { exportMap, registry, modules }) {
 			const initModName = parentDirName;
 			const parentInitModName = "@" + parentDirName;
 
-			if (modName !== initModName && availableModules.includes(initModName)) {
+			if (modName !== initModName && hasModule(initModName)) {
 				dependencies.add(initModName);
 			}
-			if (modName !== parentInitModName && availableModules.includes(parentInitModName)) {
+			if (modName !== parentInitModName && hasModule(parentInitModName)) {
 				dependencies.add(parentInitModName);
 			}
 		}
@@ -75,4 +76,3 @@ function analyzeModuleDependencies(modName, { exportMap, registry, modules }) {
 	return Array.from(dependencies).sort();
 }
 
-module.exports = { analyzeModuleDependencies };
