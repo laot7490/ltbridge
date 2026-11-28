@@ -8,14 +8,27 @@ header_marker = "<!-- git-cliff: end of header -->"
 # A Tera template to be rendered for each release in the changelog.
 # See https://keats.github.io/tera/#getting-started
 body = """
-{% for entry in commits | commit_groups(groups=commit_parsers_groups) %}
-    ### {{ entry.group | striptags | trim | upper_first }}
-    {% for commit in entry.commits %}
-        - {% if commit.scope %}*({{ commit.scope }})* {% endif %}\
-            {% if commit.breaking %}[**breaking**] {% endif %}\
-            {{ commit.message | upper_first }}. [{{ commit.id | truncate(length=7, end="") }}](https://github.com/laot7490/ltbridge/commit/{{ commit.id }})\
-    {% endfor %}
-{% endfor %}
+{%- if message %}
+{{ message | trim }}
+
+{% endif -%}
+## What's Changed
+{% for commit in commits %}
+- {% if commit.breaking %}**Breaking** {% endif -%}
+  {{ commit.raw_message | split(pat="\\n") | first | trim -}}
+  {% if commit.remote and (commit.remote.pr_author or commit.remote.username) %} by @{{ commit.remote.pr_author | default(value=commit.remote.username) }}{% endif -%}
+  {% if commit.remote and commit.remote.pr_number %} in [#{{ commit.remote.pr_number }}](https://github.com/laot7490/ltbridge/pull/{{ commit.remote.pr_number }})
+  {%- else %} ([`{{ commit.id | truncate(length=7, end="") }}`](https://github.com/laot7490/ltbridge/commit/{{ commit.id }}))
+  {%- endif %}
+{%- endfor %}
+{%- set newcomers = github.contributors | filter(attribute="is_first_time", value=true) | filter(attribute="pr_number") %}
+{%- if newcomers | length > 0 %}
+
+## New Contributors
+{% for contributor in newcomers %}
+- @{{ contributor.username }} made their first contribution in [#{{ contributor.pr_number }}](https://github.com/laot7490/ltbridge/pull/{{ contributor.pr_number }})
+{%- endfor %}
+{%- endif %}
 """
 # Remove leading and trailing whitespaces from the changelog's body.
 trim = true
@@ -94,3 +107,7 @@ topo_order_commits = true
 sort_commits = "oldest"
 # Process submodules commits
 recurse_submodules = false
+
+[remote.github]
+owner = "laot7490"
+repo = "ltbridge"

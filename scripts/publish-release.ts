@@ -76,7 +76,9 @@ async function publish() {
 			const tarball = path.join(temp, archives[0]);
 			copyFileSync(tarball, asset);
 			const notes = path.join(temp, "notes.md");
-			writeFileSync(notes, run("git-cliff", "--config", "cliff.toml", "--tag-pattern", "^$", `${base}..${sha}`) + "\n");
+			const changes = run("git-cliff", "--config", "cliff.toml", "--tag-pattern", "^$", `${base}..${sha}`);
+			const comparison = `${latest.tag_name}...${tag}`;
+			writeFileSync(notes, `${changes}\n\n**Full Changelog:** [\`${comparison}\`](https://github.com/${repository}/compare/${comparison})\n`);
 			if (draft) {
 				run("gh", "release", "edit", tag, "--target", sha, "--notes-file", notes);
 				run("gh", "release", "upload", tag, asset, "--clobber");

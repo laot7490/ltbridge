@@ -59,6 +59,7 @@ jobs:
       - name: Publish pending version
         env:
           GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           npx --no-install esbuild scripts/publish-release.ts --bundle --platform=node --outfile="$RUNNER_TEMP/publish-release.cjs"
           node "$RUNNER_TEMP/publish-release.cjs"
