@@ -1,8 +1,11 @@
-import { stripLuaForScan } from "../lua/source";
+import { stripLuaSource } from "../lua/source";
 import { pickExportModule } from "./exports";
 import { SIDES, type ModuleDatabase } from "./database";
 
-export function analyzeModuleDependencies(modName: string, { exportMap, registry, modules }: ModuleDatabase & { exportMap: Record<string, string[]> }) {
+export function analyzeModuleDependencies(
+	modName: string,
+	{ exportMap, registry, modules }: ModuleDatabase & { exportMap: Record<string, string[]> },
+) {
 	const modData = modules[modName];
 	if (!modData) return [];
 
@@ -10,10 +13,10 @@ export function analyzeModuleDependencies(modName: string, { exportMap, registry
 	const lookup = (name: string) => modules[name];
 	const dependencies = new Set<string>();
 
-	let combinedCode = "";
-	for (const side of SIDES) combinedCode += (modData[side]?.code ?? "") + "\n";
+	let moduleCode = "";
+	for (const side of SIDES) moduleCode += (modData[side]?.code ?? "") + "\n";
 
-	combinedCode = stripLuaForScan(combinedCode);
+	moduleCode = stripLuaSource(moduleCode, "mask-for-scan");
 
 	function addCallDependencies(fullPath: string) {
 		const parts = fullPath.split(".");
@@ -32,7 +35,7 @@ export function analyzeModuleDependencies(modName: string, { exportMap, registry
 				dependencies.add(current);
 			}
 
-			if (exportMap && exportMap[current]) {
+			if (exportMap[current]) {
 				const finalMatch = pickExportModule(current, exportMap[current], lookup);
 				if (finalMatch && finalMatch !== modName) dependencies.add(finalMatch);
 			}
@@ -43,13 +46,13 @@ export function analyzeModuleDependencies(modName: string, { exportMap, registry
 	const bareRegex = /(?:^|[^a-zA-Z0-9_.:"'\]])([A-Z][a-zA-Z0-9_]*)/g;
 	let match;
 
-	while ((match = ltRegex.exec(combinedCode)) !== null) {
+	while ((match = ltRegex.exec(moduleCode)) !== null) {
 		addCallDependencies(match[1].substring(3));
 	}
 
-	while ((match = bareRegex.exec(combinedCode)) !== null) {
+	while ((match = bareRegex.exec(moduleCode)) !== null) {
 		const bareName = match[1];
-		if (exportMap && exportMap[bareName]) {
+		if (exportMap[bareName]) {
 			addCallDependencies(bareName);
 		}
 	}
@@ -75,4 +78,3 @@ export function analyzeModuleDependencies(modName: string, { exportMap, registry
 
 	return Array.from(dependencies).sort();
 }
-

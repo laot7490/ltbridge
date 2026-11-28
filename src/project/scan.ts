@@ -1,21 +1,27 @@
 import fs from "node:fs";
 import path from "node:path";
-import { stripLuaForScan } from "../lua/source";
+import { stripLuaSource } from "../lua/source";
 import { getDatabase } from "../catalog/database";
 import { pickExportModule } from "../catalog/exports";
 
 export function isExcluded(targetDir: string, filePath: string): boolean {
 	const relative = path.relative(targetDir, filePath);
 	const parts = relative.split(path.sep);
-	return parts.some((part) => part === "node_modules" || part === ".git") ||
-		parts[0] === ".." || path.isAbsolute(relative) ||
+	return (
+		parts.some((part) => part === "node_modules" || part === ".git") ||
+		parts[0] === ".." ||
+		path.isAbsolute(relative) ||
 		(parts[0] === "ltbridge" && parts.length > 1 && relative !== path.join("ltbridge", "config.json")) ||
-		relative === "fxmanifest.lua" || relative === "__resource.lua";
+		relative === "fxmanifest.lua" ||
+		relative === "__resource.lua"
+	);
 }
 
 export function readLuaReferences(file: string): Set<string> {
 	const calls = new Set<string>();
-	for (const match of stripLuaForScan(fs.readFileSync(file, "utf8")).matchAll(/(?<![\w.])LT((?:\s*\.\s*[a-zA-Z_][a-zA-Z0-9_]*)+)/g)) {
+	for (const match of stripLuaSource(fs.readFileSync(file, "utf8"), "mask-for-scan").matchAll(
+		/(?<![\w.])LT((?:\s*\.\s*[a-zA-Z_][a-zA-Z0-9_]*)+)/g,
+	)) {
 		let current = "";
 		for (const part of match[1].replace(/\s/g, "").slice(1).split(".")) {
 			current = current ? current + "." + part : part;

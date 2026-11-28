@@ -1,148 +1,26 @@
-import type { BuildOptions } from "../build/index";
-import fs from "node:fs";
-import path from "node:path";
+import { color, log } from "./log";
 import { version } from "../../package.json";
-import { rebuildBundle } from "../build/index";
+import { rebuildAndSaveConfig, rebuildBundle, type BuildOptions } from "../build/index";
 import { resolveDependencies, resolveModuleName, resolveWildcardModules } from "../catalog/resolve";
 import { getModuleRegistry, isPublicModule } from "../catalog/database";
 import { scanLuaCalls, resolveReferencedModules } from "../project/scan";
 import { watchProject as watch } from "../project/watch";
-import prompts from "prompts";
+import { generateFullApi } from "../build/api";
+import { readProjectConfig, saveConfig, withProjectWrite } from "../project/config";
 
-import { CONFIG_FILE, readProjectConfig, saveConfig, withProjectWrite, writeIfChanged } from "../project/config";
-const LUA_IGNORE_DIR = "**/ltbridge/modules/**";
+function resolveModuleRequest(targetDir: string, moduleName: string) {
+	const config = readProjectConfig(targetDir);
+	const resolvedNames = resolveWildcardModules(moduleName, getModuleRegistry());
 
-function ensureVscodeLuaIgnore(targetDir: string) {
-	const vscodeDir = path.join(targetDir, ".vscode");
-	const settingsPath = path.join(vscodeDir, "settings.json");
-	let settings: Record<string, unknown> = {};
-	if (fs.existsSync(settingsPath)) {
-		try {
-			settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-		} catch {
-			console.log(`\x1b[33m! Could not parse .vscode/settings.json — skipping Lua ignoreDir update.\x1b[0m`);
-			return;
-		}
+	if (resolvedNames.length === 0) {
+		log(`✖ No modules found matching '${moduleName}'.`, "red");
+		throw new Error("Module command failed.");
 	}
-	const key = "Lua.workspace.ignoreDir";
-	const existing = settings[key];
-	if (Array.isArray(existing)) {
-		if (existing.includes(LUA_IGNORE_DIR)) {
-			console.log(`\x1b[90mℹ VS Code Lua ignoreDir already includes ltbridge/modules\x1b[0m`);
-			return;
-		}
-		settings[key] = [...existing, LUA_IGNORE_DIR];
-	} else if (typeof existing === "string") {
-		if (existing === LUA_IGNORE_DIR) {
-			console.log(`\x1b[90mℹ VS Code Lua ignoreDir already includes ltbridge/modules\x1b[0m`);
-			return;
-		}
-		settings[key] = [existing, LUA_IGNORE_DIR];
-	} else {
-		settings[key] = [LUA_IGNORE_DIR];
-	}
-	writeIfChanged(settingsPath, JSON.stringify(settings, null, "\t") + "\n");
-	console.log(`\x1b[32m✓ Updated .vscode/settings.json (Lua.workspace.ignoreDir)\x1b[0m`);
-}
-
-export async function initProject(targetDir: string) {
-	const configPath = path.join(targetDir, CONFIG_FILE);
-	const originalConfig = fs.existsSync(configPath) ? fs.readFileSync(configPath, "utf8") : undefined;
-
-	if (originalConfig !== undefined) {
-		const overwrite = await prompts({
-			type: "confirm",
-			name: "value",
-			message: "LTBridge is already initialized. Do you want to overwrite the configuration?",
-			initial: false,
-		});
-		if (!overwrite.value) {
-			console.log(`\x1b[33m! Initialization cancelled.\x1b[0m`);
-			return;
-		}
-	}
-
-	console.log(`\n\x1b[36m⚡ ltbridge v${version}\x1b[0m \x1b[32mInitializing project...\x1b[0m\n`);
-
-	const response = await prompts([
-		{
-			type: "select",
-			name: "buildMode",
-			message: "Build Output Mode:",
-			choices: [
-				{ title: "Individual (Separate files per module)", value: false },
-				{ title: "Bundle (Combine all into 3 files)", value: true },
-			],
-			initial: 0,
-		},
-		{
-			type: "select",
-			name: "minify",
-			message: "Bundled code minification:",
-			choices: [
-				{ title: "Enabled (Compact production code)", value: true },
-				{ title: "Disabled (Readable development code)", value: false },
-			],
-			initial: 1,
-		},
-		{
-			type: "select",
-			name: "debug",
-			message: "Runtime debug mode:",
-			choices: [
-				{ title: "Disabled (Recommended for production)", value: false },
-				{ title: "Enabled (Detailed logs and helper outputs)", value: true },
-			],
-			initial: 0,
-		},
-		{
-			type: "confirm",
-			name: "vscodeIgnore",
-			message: "Add Lua.workspace.ignoreDir for ltbridge/modules to .vscode/settings.json?",
-			initial: false,
-		},
-	]);
-
-	if ([response.buildMode, response.minify, response.debug, response.vscodeIgnore].some((value) => typeof value !== "boolean")) {
-		console.log(`\x1b[33m! Initialization cancelled.\x1b[0m`);
-		return;
-	}
-
-	const doBundle = response.buildMode === true;
-	const doMinify = response.minify === true;
-	const doDebug = response.debug === true;
-
-	const initialConfig = {
-		bundle: doBundle,
-		debug: doDebug,
-		minify: doMinify,
-		modules: [],
-	};
-	withProjectWrite(targetDir, () => {
-		const current = fs.existsSync(configPath) ? fs.readFileSync(configPath, "utf8") : undefined;
-		if (current !== originalConfig) throw new Error("LTBridge config changed during setup. Run init again.");
-		rebuildBundle(targetDir, initialConfig);
-		saveConfig(targetDir, initialConfig);
-	});
-	console.log(`\n\x1b[32m✓ Created configuration: ${CONFIG_FILE}\x1b[0m`);
-	console.log(`\x1b[90mℹ Build Mode: ${doBundle ? "bundle" : "individual"}\x1b[0m`);
-	console.log(`\x1b[90mℹ Minify: ${doMinify ? "enabled" : "disabled"}\x1b[0m`);
-	console.log(`\x1b[90mℹ Debug: ${doDebug ? "enabled" : "disabled"}\x1b[0m\n`);
-
-	if (response.vscodeIgnore) {
-		ensureVscodeLuaIgnore(targetDir);
-	}
+	return { config, resolvedNames, wildcard: moduleName.endsWith("*") };
 }
 
 export function addModule(targetDir: string, moduleName: string) {
-	const config = readProjectConfig(targetDir);
-	const registry = getModuleRegistry();
-	const resolvedNames = resolveWildcardModules(moduleName, registry);
-
-	if (resolvedNames.length === 0) {
-		console.log(`\x1b[31m✖ No modules found matching '${moduleName}'.\x1b[0m`);
-		throw new Error("Module command failed.");
-	}
+	const { config, resolvedNames, wildcard } = resolveModuleRequest(targetDir, moduleName);
 
 	let addedCount = 0;
 	let internalBlocked = false;
@@ -151,66 +29,57 @@ export function addModule(targetDir: string, moduleName: string) {
 		if (resolvedName === "__init__") continue;
 
 		if (!isPublicModule(resolvedName)) {
-			if (!moduleName.endsWith("*")) {
-				console.log(`\x1b[31m✖ Cannot manually add internal ghost module '${resolvedName}'.\x1b[0m`);
-				console.log(`\x1b[90mℹ Ghost modules are active and managed purely as auto-dependencies behind the scenes.\x1b[0m`);
+			if (!wildcard) {
+				log(`✖ Cannot manually add internal ghost module '${resolvedName}'.`, "red");
+				log(`ℹ Ghost modules are active and managed purely as auto-dependencies behind the scenes.`, "gray");
 				internalBlocked = true;
 			}
 			continue;
 		}
 
 		if (config.modules.includes(resolvedName)) {
-			if (!moduleName.endsWith("*")) {
-				console.log(`\x1b[90mℹ Module '${resolvedName}' is already added.\x1b[0m`);
+			if (!wildcard) {
+				log(`ℹ Module '${resolvedName}' is already added.`, "gray");
 			}
 			continue;
 		}
 
 		config.modules.push(resolvedName);
-		console.log(`\x1b[32m✓ Added module '${resolvedName}'.\x1b[0m`);
+		log(`✓ Added module '${resolvedName}'.`, "green");
 		addedCount++;
 	}
 
 	if (addedCount > 0) {
-		rebuildBundle(targetDir, config);
-		saveConfig(targetDir, config);
-	} else if (moduleName.endsWith("*")) {
-		console.log(`\x1b[90mℹ All matching modules are already added.\x1b[0m`);
+		rebuildAndSaveConfig(targetDir, config);
+	} else if (wildcard) {
+		log(`ℹ All matching modules are already added.`, "gray");
 	} else if (internalBlocked) {
 		throw new Error("Module command failed.");
 	}
 }
 
 export function removeModule(targetDir: string, moduleName: string) {
-	const config = readProjectConfig(targetDir);
-	const registry = getModuleRegistry();
-	const resolvedNames = resolveWildcardModules(moduleName, registry);
-
-	if (resolvedNames.length === 0) {
-		console.log(`\x1b[31m✖ No modules found matching '${moduleName}'.\x1b[0m`);
-		throw new Error("Module command failed.");
-	}
+	const { config, resolvedNames, wildcard } = resolveModuleRequest(targetDir, moduleName);
 
 	let removedCount = 0;
 
 	for (const resolvedName of resolvedNames) {
 		if (!config.modules.includes(resolvedName)) {
-			if (!moduleName.endsWith("*")) {
-				console.log(`\x1b[90mℹ Module '${resolvedName}' is not currently added.\x1b[0m`);
+			if (!wildcard) {
+				log(`ℹ Module '${resolvedName}' is not currently added.`, "gray");
 			}
 			continue;
 		}
 
 		config.modules = config.modules.filter((m) => m !== resolvedName);
-		console.log(`\x1b[33m- Removed module '${resolvedName}'.\x1b[0m`);
+		log(`- Removed module '${resolvedName}'.`, "yellow");
 		removedCount++;
 	}
 
 	if (removedCount > 0) {
-		rebuildBundle(targetDir, config);
-		saveConfig(targetDir, config);
-	} else if (moduleName.endsWith("*")) {
-		console.log(`\x1b[90mℹ No matching modules were currently added.\x1b[0m`);
+		rebuildAndSaveConfig(targetDir, config);
+	} else if (wildcard) {
+		log(`ℹ No matching modules were currently added.`, "gray");
 	}
 }
 
@@ -218,9 +87,9 @@ export function watchProject(targetDir: string, options: BuildOptions) {
 	return watch(targetDir, (config) => rebuildBundle(targetDir, config, options));
 }
 
-export function refreshModules(targetDir: string, options: BuildOptions = {}) {
+export function buildProject(targetDir: string, options: BuildOptions = {}) {
 	const config = readProjectConfig(targetDir);
-	console.log(`\n\x1b[36m⚡ ltbridge v${version}\x1b[0m \x1b[32mbuilding for production...\x1b[0m`);
+	log(`\n${color(`⚡ ltbridge v${version}`, "cyan")} ${color(`building for production...`, "green")}`);
 	const previousVersion = config.version;
 	rebuildBundle(targetDir, config, options);
 	if (config.version !== previousVersion) saveConfig(targetDir, config);
@@ -228,7 +97,7 @@ export function refreshModules(targetDir: string, options: BuildOptions = {}) {
 
 export function pruneModules(targetDir: string) {
 	const config = readProjectConfig(targetDir);
-	console.log(`\x1b[90mℹ Scanning project for unused LT modules...\x1b[0m`);
+	log(`ℹ Scanning project for unused LT modules...`, "gray");
 
 	const foundCalls = scanLuaCalls(targetDir);
 	const validRequestedModules = resolveReferencedModules(foundCalls);
@@ -245,14 +114,13 @@ export function pruneModules(targetDir: string) {
 	}
 
 	if (removed.length > 0) {
-		console.log(`\x1b[32m✓ Pruned ${removed.length} unused modules: ${removed.join(", ")}\x1b[0m`);
+		log(`✓ Pruned ${removed.length} unused modules: ${removed.join(", ")}`, "green");
 		config.modules = toKeep;
 	} else {
-		console.log(`\x1b[90mℹ No unused modules found. Everything is tightly integrated!\x1b[0m`);
+		log(`ℹ No unused modules found. Everything is tightly integrated!`, "gray");
 	}
 
-	rebuildBundle(targetDir, config);
-	saveConfig(targetDir, config);
+	rebuildAndSaveConfig(targetDir, config);
 }
 
 export function explainModule(targetDir: string, moduleName: string) {
@@ -260,46 +128,44 @@ export function explainModule(targetDir: string, moduleName: string) {
 	const resolvedName = resolveModuleName(moduleName, registry);
 
 	if (!resolvedName) {
-		console.log(`\x1b[31m✖ Module '${moduleName}' does not exist in the repository.\x1b[0m`);
+		log(`✖ Module '${moduleName}' does not exist in the repository.`, "red");
 		throw new Error("Module command failed.");
 	}
 
 	const config = readProjectConfig(targetDir);
-	const installed = new Set(config.modules || []);
-	const { graph } = resolveDependencies(config.modules || []);
-
-	const dependentOf: Record<string, string[]> = {};
-	for (const [parentModule, deps] of Object.entries(graph)) {
-		for (const d of deps) {
-			if (!dependentOf[d]) dependentOf[d] = [];
-			if (!dependentOf[d].includes(parentModule)) dependentOf[d].push(parentModule);
-		}
-	}
+	const installed = new Set(config.modules);
+	const { graph } = resolveDependencies(config.modules);
 
 	const isManual = installed.has(resolvedName);
-	const parents = dependentOf[resolvedName] || [];
+	const parents = Object.keys(graph).filter((parent) => graph[parent].includes(resolvedName));
 	const isDep = parents.length > 0;
 
-	console.log(`\n\x1b[1m\x1b[36mℹ Why is '${resolvedName}' included in your project?\x1b[0m`);
+	log(`\n${color(`ℹ Why is '${resolvedName}' included in your project?`, "heading")}`);
 
 	if (resolvedName === "__init__") {
-		console.log("  Included automatically in every LTBridge build.");
+		log("  Included automatically in every LTBridge build.");
 		return;
 	}
 	if (!isManual && !isDep) {
-		console.log(`  \x1b[90m○ This module is NOT currently included in your project build.\x1b[0m\n`);
+		log(`  ${color(`○ This module is NOT currently included in your project build.`, "gray")}\n`);
 		return;
 	}
 
 	if (isManual) {
-		console.log(`  \x1b[32m✔ You explicitly added it to your ltbridge/config.json\x1b[0m`);
+		log(`  ${color(`✔ You explicitly added it to your ltbridge/config.json`, "green")}`);
 	}
 
 	if (isDep) {
-		console.log(`  \x1b[33m⚙ It is automatically included as a dependency for the following modules:\x1b[0m`);
+		log(`  ${color(`⚙ It is automatically included as a dependency for the following modules:`, "yellow")}`);
 		for (const p of parents) {
-			console.log(`    - ${p}`);
+			log(`    - ${p}`);
 		}
 	}
-	console.log("");
+	log("");
+}
+
+export function regenerateApi(targetDir: string) {
+	log(`\n${color(`⚡ ltbridge`, "cyan")} ${color(`Regenerating API stubs...`, "green")}`);
+	withProjectWrite(targetDir, () => generateFullApi(targetDir));
+	log(`${color(`✓ API reference successfully updated.`, "green")}\n`);
 }

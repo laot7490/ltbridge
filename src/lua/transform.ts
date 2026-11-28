@@ -15,7 +15,7 @@ function isWordBoundary(code: string, index: number, wordLen: number) {
 function parseBalancedParens(code: string, openIndex: number, len: number) {
 	let depth = 0;
 	for (let i = openIndex; i < len; i++) {
-		const skipped = skipStringOrComment(code, i, len);
+		const skipped = skipStringOrComment(code, i);
 		if (skipped > i) {
 			i = skipped - 1;
 			continue;
@@ -39,7 +39,7 @@ function isStatementLevel(code: string, callEnd: number, len: number) {
 	if (code[i] !== "\n" && code[i] !== "\r" && !code.startsWith("--", i)) return false;
 	while (i < len) {
 		if (/\s/.test(code[i])) i++;
-		else if (code.startsWith("--", i)) i = skipStringOrComment(code, i, len);
+		else if (code.startsWith("--", i)) i = skipStringOrComment(code, i);
 		else break;
 	}
 	return i >= len || !"([.{:'\"".includes(code[i]);
@@ -57,7 +57,7 @@ export function transformLtassertStatements(source: string) {
 	let previousTokenEnd = 0;
 
 	while (i < len) {
-		const skipped = skipStringOrComment(source, i, len);
+		const skipped = skipStringOrComment(source, i);
 		if (skipped > i) {
 			if (!source.startsWith("--", i)) previousTokenEnd = skipped;
 			out += source.substring(i, skipped);
@@ -65,13 +65,15 @@ export function transformLtassertStatements(source: string) {
 			continue;
 		}
 
-		if (
-			source.startsWith(word, i) &&
-			isWordBoundary(source, i, word.length)
-		) {
+		if (source.startsWith(word, i) && isWordBoundary(source, i, word.length)) {
 			const bodyDepth = [...blocks].reverse().find((block) => block !== null) ?? 0;
-			if (expressionDepth === bodyDepth && /^[ \t]*$/.test(source.slice(getLineStart(source, i), i)) &&
-				!/(?:\b(?:return|and|or|not|if|elseif|while|until|in)|[=+*/%<>~^|&.,:#-])$/.test(source.slice(Math.max(0, previousTokenEnd - 16), previousTokenEnd))) {
+			if (
+				expressionDepth === bodyDepth &&
+				/^[ \t]*$/.test(source.slice(getLineStart(source, i), i)) &&
+				!/(?:\b(?:return|and|or|not|if|elseif|while|until|in)|[=+*/%<>~^|&.,:#-])$/.test(
+					source.slice(Math.max(0, previousTokenEnd - 16), previousTokenEnd),
+				)
+			) {
 				let openParen = i + word.length;
 				while (source[openParen] === " " || source[openParen] === "\t") openParen++;
 				const callEnd = source[openParen] === "(" ? parseBalancedParens(source, openParen, len) : -1;
@@ -103,4 +105,3 @@ export function transformLtassertStatements(source: string) {
 
 	return out;
 }
-

@@ -1,14 +1,15 @@
+import { log } from "../cli/log";
+import { formatBuildOutputs, type RenderedChunk } from "./layout";
 import crypto from "node:crypto";
 import { version } from "../../package.json";
 import { applyBuildConstants } from "../lua/constants";
-import { mapLuaCode, stripLuaForScan } from "../lua/source";
+import { mapLuaCode, stripLuaSource } from "../lua/source";
 import { getModuleData, SIDES, type Side, type StubMetadata } from "../catalog/database";
 import type { ProjectConfig } from "../project/config";
 
 export function renderBundle(loadSequence: string[], config: ProjectConfig) {
 	const doMinify = config.minify === true;
 	const buildAsIndividual = config.bundle !== true;
-	const emitted = new Set<Side>();
 
 	const funcNamespaceMap: Record<string, string | null> = Object.create(null);
 	const funcMetadata: Record<string, StubMetadata> = Object.create(null);
@@ -32,7 +33,9 @@ export function renderBundle(loadSequence: string[], config: ProjectConfig) {
 				const header = `\n-- Module: ${modName} (${fileType}.lua)\n`;
 				let finalContent = content;
 				if (!doMinify && !buildAsIndividual) {
-					finalContent = mapLuaCode(content, (code, offset) => code.replace(/(^|\n)(?=[^\r\n]*\S)/g, (line, before, index) => index > 0 || before || offset === 0 ? line + "\t" : line));
+					finalContent = mapLuaCode(content, (code, offset) =>
+						code.replace(/(^|\n)(?=[^\r\n]*\S)/g, (line, before, index) => (index > 0 || before || offset === 0 ? line + "\t" : line)),
+					);
 				}
 				if (!buildAsIndividual) return header + `do\n${finalContent}\nend\n`;
 				return `${finalContent}\n`;
@@ -45,7 +48,6 @@ export function renderBundle(loadSequence: string[], config: ProjectConfig) {
 			const code = collectSideSource(side);
 			if (!code) continue;
 			sources[side] = code;
-			emitted.add(side);
 		}
 		collectedSources.push(sources);
 	};
@@ -54,13 +56,13 @@ export function renderBundle(loadSequence: string[], config: ProjectConfig) {
 		processModule(modName);
 	}
 
-	const luamin = (doMinify ? require("../vendor/luamin.cjs") : undefined);
+	const luamin = doMinify ? require("../vendor/luamin.cjs") : undefined;
 	const minifySafe = (source: string, name: string): string => {
 		if (!doMinify) return source;
 		try {
 			return luamin.Minify(source, { RenameVariables: true, RenameGlobals: false, SolveMath: false });
 		} catch (e) {
-			console.log(`\x1b[33m! Minification failed for ${name}. Emitting unminified code. Error: ${e instanceof Error ? e.message : e}\x1b[0m`);
+			log(`! Minification failed for ${name}. Emitting unminified code. Error: ${e instanceof Error ? e.message : e}`, "yellow");
 			return source;
 		}
 	};
@@ -68,7 +70,7 @@ export function renderBundle(loadSequence: string[], config: ProjectConfig) {
 	const GLOBAL_BLACKLIST = ["LT", "QBCore", "ESX", "QBX", "exports"];
 	const globalsToRandomize = new Set<string>();
 	const collectGlobals = (source: string) => {
-		source = stripLuaForScan(source);
+		source = stripLuaSource(source, "mask-for-scan");
 		const globalRegex = /^([a-zA-Z_][a-zA-Z0-9_]*)\s*=/gm;
 		let match;
 		while ((match = globalRegex.exec(source)) !== null) {
@@ -86,9 +88,7 @@ export function renderBundle(loadSequence: string[], config: ProjectConfig) {
 
 	if (doMinify) {
 		for (const mod of collectedSources) {
-			if (mod.shared) collectGlobals(mod.shared);
-			if (mod.client) collectGlobals(mod.client);
-			if (mod.server) collectGlobals(mod.server);
+			for (const side of SIDES) if (mod[side]) collectGlobals(mod[side]);
 		}
 	}
 	const hashObj = (str: string) => crypto.createHash("md5").update(str).digest("hex").substring(0, 5);
@@ -103,7 +103,7 @@ export function renderBundle(loadSequence: string[], config: ProjectConfig) {
 			h = hashObj(name + index);
 		}
 		usedNames.add(h);
-		return globalMappings[name] = `__` + h;
+		return (globalMappings[name] = `__` + h);
 	}
 
 	for (const name of globalsToRandomize) allocateGlobal(name);
@@ -117,9 +117,7 @@ export function renderBundle(loadSequence: string[], config: ProjectConfig) {
 
 	if (doMinify) {
 		for (const mod of collectedSources) {
-			mod.shared = randomizeGlobals(mod.shared);
-			mod.client = randomizeGlobals(mod.client);
-			mod.server = randomizeGlobals(mod.server);
+			for (const side of SIDES) mod[side] = randomizeGlobals(mod[side]);
 		}
 	}
 
@@ -129,20 +127,22 @@ export function renderBundle(loadSequence: string[], config: ProjectConfig) {
 		server: new Set<string>(),
 	};
 
-	const rules = Object.keys(funcNamespaceMap).sort((a, b) => b.length - a.length).map((name) => {
-		const ns = funcNamespaceMap[name];
-		const prefix = ns ? `LT.${ns}.` : "LT.";
-		return {
-			name,
-			ns,
-			prefix,
-			meta: funcMetadata[name],
-			internal: new RegExp(`(^|[^a-zA-Z0-9_.:"'])(${name})(\\s*[=().,\\[\\]])`, "g"),
-			declaration: new RegExp(`(^[ \\t]*function\\s+)${name}(\\s*\\()`, "gm"),
-			normalize: new RegExp(`\\b${prefix.replaceAll(".", "\\.")}(${name})(\\s*\\()`, "g"),
-			call: new RegExp(`(^|[^a-zA-Z0-9_.:"'])(${name})(\\s*\\()`, "g"),
-		};
-	});
+	const rules = Object.keys(funcNamespaceMap)
+		.sort((a, b) => b.length - a.length)
+		.map((name) => {
+			const ns = funcNamespaceMap[name];
+			const prefix = ns ? `LT.${ns}.` : "LT.";
+			return {
+				name,
+				ns,
+				prefix,
+				meta: funcMetadata[name],
+				internal: new RegExp(`(^|[^a-zA-Z0-9_.:"'])(${name})(\\s*[=().,\\[\\]])`, "g"),
+				declaration: new RegExp(`(^[ \\t]*function\\s+)${name}(\\s*\\()`, "gm"),
+				normalize: new RegExp(`\\b${prefix.replaceAll(".", "\\.")}(${name})(\\s*\\()`, "g"),
+				call: new RegExp(`(^|[^a-zA-Z0-9_.:"'])(${name})(\\s*\\()`, "g"),
+			};
+		});
 	const injectLTNamespace = (source: string, targetRequiredTables: Set<string> | null) => {
 		if (!source) return source;
 		if (rules.length === 0) return source;
@@ -150,7 +150,7 @@ export function renderBundle(loadSequence: string[], config: ProjectConfig) {
 		const rewrites: ((code: string) => string)[] = [];
 		const requiredTables = new Set<string>();
 		let extraExports = "";
-		const identifiers = new Set(stripLuaForScan(source).match(/[a-zA-Z_][a-zA-Z0-9_]*/g));
+		const identifiers = new Set(stripLuaSource(source, "mask-for-scan").match(/[a-zA-Z_][a-zA-Z0-9_]*/g));
 
 		for (const { name, ns, prefix: origPrefixStr, meta, internal, declaration, normalize, call } of rules) {
 			if (!identifiers.has(name)) continue;
@@ -190,13 +190,20 @@ export function renderBundle(loadSequence: string[], config: ProjectConfig) {
 				});
 			}
 
-			rewrites.push((code) => code.replace(declaration, `$1${targetReplacement}$2`).replace(normalize, "$1$2").replace(call, (m, prefix, _func, suffix) => {
-				if (prefix.trim().endsWith("function")) return m;
-				return `${prefix}${targetReplacement}${suffix}`;
-			}));
+			rewrites.push((code) =>
+				code
+					.replace(declaration, `$1${targetReplacement}$2`)
+					.replace(normalize, "$1$2")
+					.replace(call, (m, prefix, _func, suffix) => {
+						if (prefix.trim().endsWith("function")) return m;
+						return `${prefix}${targetReplacement}${suffix}`;
+					}),
+			);
 		}
 
-		const newSource = rewrites.length ? mapLuaCode(source, (code) => rewrites.reduce((result, rewrite) => rewrite(result), code)) : source;
+		const newSource = rewrites.length
+			? mapLuaCode(source, (code) => rewrites.reduce((result, rewrite) => rewrite(result), code))
+			: source;
 		if (targetRequiredTables) {
 			return newSource + (extraExports.length > 0 ? `\n-- Exports\n${extraExports}` : "");
 		} else {
@@ -205,112 +212,15 @@ export function renderBundle(loadSequence: string[], config: ProjectConfig) {
 		}
 	};
 
-	const finalBundle = { shared: "", client: "", server: "" };
-	const individualFiles: { path: string; content: string; type: Side }[] = [];
+	const chunks: RenderedChunk[] = [];
 	for (const sources of collectedSources) {
 		for (const side of SIDES) {
 			if (!sources[side]) continue;
 			const code = injectLTNamespace(sources[side], buildAsIndividual ? null : bundleRequiredTables[side]);
 			const content = minifySafe(code, sources.moduleId + " " + side + ".lua");
-			if (buildAsIndividual) {
-				individualFiles.push({ path: getIndividualPath(sources.moduleId, side), content, type: side });
-			} else finalBundle[side] += content + "\n";
+			chunks.push({ moduleId: sources.moduleId, side, content });
 		}
 	}
 
-	const outputs = new Map<string, string>();
-	const writeOutput = (relativePath: string, content: string) => outputs.set(relativePath, content);
-
-	const getBundleHeader = (type: string) =>
-		`--[[\n * @license LT Bridge\n * ${type.toLowerCase()}.lua\n *\n * Copyright (c) LT Scripts.\n *\n * This source code is licensed under the MIT license found in the\n * LICENSE file in the root directory of this source tree.\n]]\n\n`;
-
-	if (buildAsIndividual) {
-		const loaders: Record<Side, string[]> = { shared: [], client: [], server: [] };
-
-		for (const file of individualFiles) {
-			const relPath = "modules/" + file.path.replace(/\\/g, "/");
-			writeOutput(relPath, getBundleHeader(file.type) + "--- @diagnostic disable\n" + file.content);
-			const requirePath = file.path.replace(/\\/g, "/").replace(/^imports\//, "");
-			loaders[file.type].push(`    "${requirePath}"`);
-		}
-
-		const generateLoader = (typeStr: string, items: string[]) => {
-			if (items.length === 0) return "";
-			return `-- LTBridge Auto-Generated ${typeStr} Loader
-
-local RESOURCE <const> = GetCurrentResourceName()
-local BASE_PATH <const> = "ltbridge/modules/imports/"
-
-local modules = {
-${items.join(",\n")}
-}
-
-local function loadModule(path)
-    local fullPath = BASE_PATH .. path
-    local content = LoadResourceFile(RESOURCE, fullPath)
-    if not content then
-        return print(("^6[LTBridge ${version}] ^1ERROR: Module file not found: %s^7"):format(path))
-    end
-    local chunk, err = load(content, ("@@%s/%s"):format(RESOURCE, fullPath))
-    if not chunk then
-        return print(("^6[LTBridge ${version}] ^1ERROR: Syntax error in module: %s\\n%s^7"):format(fullPath, err))
-    end
-    local ok, runtimeErr = pcall(chunk)
-    if not ok then
-        print(("^6[LTBridge ${version}] ^1ERROR: Runtime error in module: %s\\n%s^7"):format(fullPath, runtimeErr))
-    end
-end
-
-for i = 1, #modules do
-    loadModule(modules[i])
-end
-`;
-		};
-
-		if (emitted.has("shared")) writeOutput("modules/shared.lua", generateLoader("Shared", loaders.shared));
-		if (emitted.has("client")) writeOutput("modules/client.lua", generateLoader("Client", loaders.client));
-		if (emitted.has("server")) writeOutput("modules/server.lua", generateLoader("Server", loaders.server));
-	} else {
-		const getInitBlock = (type: Side) =>
-			`LT = LT or {}\n` +
-			Array.from(bundleRequiredTables[type]).join("\n") +
-			(bundleRequiredTables[type].size > 0 ? `\n\n` : `\n`);
-
-		if (emitted.has("shared"))
-			writeOutput(
-				"modules/shared.lua",
-				getBundleHeader("Shared") + "--- @diagnostic disable\n" + getInitBlock("shared") + finalBundle.shared,
-			);
-		if (emitted.has("client"))
-			writeOutput(
-				"modules/client.lua",
-				getBundleHeader("Client") + "--- @diagnostic disable\n" + getInitBlock("client") + finalBundle.client,
-			);
-		if (emitted.has("server"))
-			writeOutput(
-				"modules/server.lua",
-				getBundleHeader("Server") + "--- @diagnostic disable\n" + getInitBlock("server") + finalBundle.server,
-			);
-	}
-
-	return { outputs, hasClient: emitted.has("client"), hasServer: emitted.has("server"), hasShared: emitted.has("shared") };
-}
-
-function getIndividualPath(modName: string, type: Side) {
-	const modParts = modName.split("/");
-	let category = "uncategorized";
-	let name = modName;
-	if (modName === "__init__") {
-		category = "Core";
-		name = "init";
-	} else if (modParts.length > 1) {
-		category = modParts.slice(0, -1).join("/").replace(/^@/, "");
-		name = modParts[modParts.length - 1];
-	} else if (modName.startsWith("@")) {
-		category = modName.replace(/^@/, "");
-		name = "init";
-	} else {
-		name = modName.replace(/^@/, "");
-	}
-	return name === "init" ? `imports/${category}/${type}.lua` : `imports/${category}/${name}/${type}.lua`;
+	return formatBuildOutputs(chunks, bundleRequiredTables, buildAsIndividual);
 }
