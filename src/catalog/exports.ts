@@ -30,4 +30,3 @@ export function pickExportModule(call: string, candidates: string[] | undefined,
 	const globalMatch = candidates.find((c) => moduleHasGlobalStub(c, lookup));
 	return globalMatch || candidates[0];
 }
-

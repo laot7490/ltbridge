@@ -1,9 +1,9 @@
 import { publicExportNames } from "./exports";
-import { skipStringOrComment, stripLuaForScan } from "../lua/source";
+import { skipStringOrComment, stripLuaSource } from "../lua/source";
 import type { Side, Stub, StubMetadata } from "./database";
 
 function extractTableKeys(source: string, tableName: string) {
-	const declaration = new RegExp("\\b" + tableName + "\\s*=\\s*\\{").exec(stripLuaForScan(source));
+	const declaration = new RegExp("\\b" + tableName + "\\s*=\\s*\\{").exec(stripLuaSource(source, "mask-for-scan"));
 	if (!declaration) return [];
 	const keys: string[] = [];
 	let fieldStart = declaration.index + declaration[0].length;
@@ -59,7 +59,7 @@ export function extractStubs(code: string, ns: string | null, context: Side) {
 		const dynRegex = /^[ \t]*---[ \t]*@ltbridge[ \t]+(params?|returns?)[.: \t]+([a-zA-Z0-9_]+)(?:[.: \t]+([a-zA-Z0-9_]+))?/gm;
 		commentBlock = commentBlock.replace(dynRegex, (_match, type, tableName, extraArg) => {
 			const keys = extractTableKeys(code, tableName);
-			if (!keys || keys.length === 0) return `--- @${type.startsWith("param") ? "param" : "return"} any`;
+			if (keys.length === 0) return `--- @${type.startsWith("param") ? "param" : "return"} any`;
 			let unionStr = keys.map((k) => `'${k}'`).join("|");
 			if (type.startsWith("param")) return `--- @param ${extraArg || "unnamed"} ${unionStr}`;
 			if (extraArg) unionStr += `|${extraArg}`;
@@ -104,12 +104,9 @@ export function extractEmmyClasses(code: string) {
 				i++;
 				continue;
 			}
-			if (/^[ \t]*---/.test(line)) break;
-			if (line.trim().length > 0) break;
 			break;
 		}
 		types.push({ className, code: blockLines.join("\n") });
 	}
 	return types;
 }
-

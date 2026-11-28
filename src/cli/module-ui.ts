@@ -1,13 +1,13 @@
+import { color, log } from "./log";
 import prompts from "prompts";
-import { readProjectConfig, saveConfig, withProjectWrite } from "../project/config";
-import { rebuildBundle } from "../build/index";
-interface ModuleEntry { mod: string; name: string }
+import { readProjectConfig, withProjectWrite } from "../project/config";
+import { rebuildAndSaveConfig } from "../build/index";
+interface ModuleEntry {
+	mod: string;
+	name: string;
+}
 import { getModuleRegistry, isPublicModule } from "../catalog/database";
 import { resolveDependencies } from "../catalog/resolve";
-
-function getVisibleModules() {
-	return Object.keys(getModuleRegistry()).filter(isPublicModule);
-}
 
 function buildModuleGroups(allModules: string[], registry: Record<string, string>) {
 	const groups: Record<string, ModuleEntry[]> = {};
@@ -37,21 +37,6 @@ function buildModuleGroups(allModules: string[], registry: Record<string, string
 	return groups;
 }
 
-function getDependencySets(configModules: string[]) {
-	const depsSet = new Set<string>();
-
-	if (configModules && configModules.length > 0) {
-		const { graph } = resolveDependencies(configModules);
-		for (const deps of Object.values(graph)) {
-			for (const d of deps) {
-				depsSet.add(d);
-			}
-		}
-	}
-
-	return depsSet;
-}
-
 function getVisibleGroupModules(modsInGroup: ModuleEntry[], group: string) {
 	const lastPart = group.split(" / ").pop();
 	const initModName = "@" + lastPart;
@@ -59,26 +44,25 @@ function getVisibleGroupModules(modsInGroup: ModuleEntry[], group: string) {
 	return filteredMods.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-
 export async function interactiveSelect(targetDir: string) {
 	const registry = getModuleRegistry();
-	const allModules = getVisibleModules();
+	const allModules = Object.keys(registry).filter(isPublicModule);
 
 	const currentConfig = readProjectConfig(targetDir, true);
 
 	if (!currentConfig) {
-		console.log(`\x1b[31m✖ Not an LTBridge initialized directory. Run 'ltbridge init' first.\x1b[0m`);
+		log(`✖ Not an LTBridge initialized directory. Run 'ltbridge init' first.`, "red");
 		return;
 	}
 
 	const installed = new Set(currentConfig.modules);
-	const depsSet = getDependencySets(currentConfig.modules || []);
+	const depsSet = new Set(Object.values(resolveDependencies(currentConfig.modules).graph).flat());
 	const groups = buildModuleGroups(allModules, registry);
 
 	const choices: prompts.Choice[] = [];
 	for (const group of Object.keys(groups).sort()) {
 		choices.push({
-			title: `\x1b[1m\x1b[36m--- ${group.toUpperCase()} ---\x1b[0m`,
+			title: `${color(`--- ${group.toUpperCase()} ---`, "heading")}`,
 			value: `__group_${group}__`,
 			disabled: true,
 		});
@@ -91,9 +75,9 @@ export async function interactiveSelect(targetDir: string) {
 
 			let title = name;
 			if (isDep && !isInstalled) {
-				title = `${title} \x1b[90m(⚙ Auto-Dependency [INCLUDED])\x1b[0m`;
+				title = `${title} ${color(`(⚙ Auto-Dependency [INCLUDED])`, "gray")}`;
 			} else if (isDep && isInstalled) {
-				title = `${title} \x1b[90m(Also a Dependency)\x1b[0m`;
+				title = `${title} ${color(`(Also a Dependency)`, "gray")}`;
 			}
 
 			choices.push({
@@ -116,7 +100,7 @@ export async function interactiveSelect(targetDir: string) {
 	});
 
 	if (!response.selectedModules) {
-		console.log(`\x1b[90mℹ Module selection cancelled.\x1b[0m`);
+		log(`ℹ Module selection cancelled.`, "gray");
 		return;
 	}
 
@@ -128,19 +112,18 @@ export async function interactiveSelect(targetDir: string) {
 	const toRemove = Array.from(installed).filter((m) => !finalSelection.includes(m));
 
 	if (toAdd.length === 0 && toRemove.length === 0) {
-		console.log(`\x1b[90mℹ No changes made to module selection.\x1b[0m`);
+		log(`ℹ No changes made to module selection.`, "gray");
 		return;
 	}
 
-	if (toAdd.length > 0) console.log(`\x1b[32m✓ Adding: ${toAdd.join(", ")}\x1b[0m`);
-	if (toRemove.length > 0) console.log(`\x1b[33m- Removing: ${toRemove.join(", ")}\x1b[0m`);
+	if (toAdd.length > 0) log(`✓ Adding: ${toAdd.join(", ")}`, "green");
+	if (toRemove.length > 0) log(`- Removing: ${toRemove.join(", ")}`, "yellow");
 
 	withProjectWrite(targetDir, () => {
 		const latest = readProjectConfig(targetDir);
-		if (JSON.stringify(latest) !== JSON.stringify(currentConfig)) throw new Error("LTBridge config changed during selection. Open the picker again.");
+		if (JSON.stringify(latest) !== JSON.stringify(currentConfig))
+			throw new Error("LTBridge config changed during selection. Open the picker again.");
 		latest.modules = finalSelection;
-		rebuildBundle(targetDir, latest);
-		saveConfig(targetDir, latest);
+		rebuildAndSaveConfig(targetDir, latest);
 	});
 }
-

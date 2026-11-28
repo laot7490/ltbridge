@@ -6,19 +6,19 @@ import { version } from "../package.json";
 import { applyBuildConstants } from "../src/lua/constants";
 import { transformLtassertStatements } from "../src/lua/transform";
 import { analyzeModuleDependencies } from "../src/catalog/analyze";
-import { stripLuaComments } from "../src/lua/source";
-import { SIDES, type ModuleData, type ModuleDatabase, type ModuleSource, type Stub, type Side } from "../src/catalog/database";
+import { stripLuaSource } from "../src/lua/source";
+import { SIDES, type ModuleData, type ModuleDatabase, type ModuleSource, type Side } from "../src/catalog/database";
 
 const modulesDir = path.join(__dirname, "..", "modules");
 const distDir = path.join(__dirname, "..", "dist");
 
 function addExport(index: Record<string, string[]>, name: string, moduleId: string) {
-	const candidates = index[name] ??= [];
+	const candidates = (index[name] ??= []);
 	if (!candidates.includes(moduleId)) candidates.push(moduleId);
 }
 
 function compile() {
-	if (!fs.existsSync(distDir)) fs.mkdirSync(distDir, { recursive: true });
+	fs.mkdirSync(distDir, { recursive: true });
 
 	const db: ModuleDatabase & { exportMap: Record<string, string[]> } = {
 		version: version,
@@ -47,7 +47,11 @@ function compile() {
 			let ns = null;
 			for (const part of nsParts) if (part.startsWith("@")) ns = part.substring(1);
 
-			const modData: { ns: string | null; meta: ModuleData["meta"]; files: Partial<Record<Side, ModuleSource>> } = { ns, meta: {}, files: {} };
+			const modData: { ns: string | null; meta: ModuleData["meta"]; files: Partial<Record<Side, ModuleSource>> } = {
+				ns,
+				meta: {},
+				files: {},
+			};
 
 			const jsonPath = path.join(currentPath, "module.json");
 			if (fs.existsSync(jsonPath)) {
@@ -67,7 +71,7 @@ function compile() {
 					const rawCode = fs.readFileSync(fPath, "utf8");
 					const stubs = extractStubs(rawCode, ns, ctx);
 					const types = extractEmmyClasses(rawCode);
-					let cleanCode = stripLuaComments(rawCode);
+					let cleanCode = stripLuaSource(rawCode, "strip-comments");
 					cleanCode = applyBuildConstants(cleanCode, { version: version });
 					cleanCode = transformLtassertStatements(cleanCode);
 					modData.files[ctx] = { code: cleanCode, stubs: stubs, types: types };
@@ -96,9 +100,10 @@ function compile() {
 	scan(modulesDir);
 
 	for (const [modName, modData] of Object.entries(db.modules)) {
-		const processStubs = (stubs: Stub[]) => {
-			if (!stubs) return;
-			for (const stub of stubs) {
+		for (const side of SIDES) {
+			const source = modData[side];
+			if (!source) continue;
+			for (const stub of source.stubs) {
 				const formsToExport = publicExportNames(stub.funcName, modData.ns, stub.metadata);
 				if (!stub.metadata.internal && !modData.meta.internal) {
 					for (const form of formsToExport) addExport(db.publicExports, form, modName);
@@ -108,17 +113,13 @@ function compile() {
 
 				for (const form of formsToExport) addExport(db.exportMap, form, modName);
 			}
-		};
-		if (modData.shared) processStubs(modData.shared.stubs);
-		if (modData.client) processStubs(modData.client.stubs);
-		if (modData.server) processStubs(modData.server.stubs);
+		}
 	}
 
 	for (const [modName, modData] of Object.entries(db.modules)) {
 		const deps = analyzeModuleDependencies(modName, db);
 
 		modData.dependencies = deps;
-
 	}
 
 	fs.copyFileSync(path.join(__dirname, "..", "THIRD_PARTY_NOTICES.txt"), path.join(distDir, "THIRD_PARTY_NOTICES.txt"));

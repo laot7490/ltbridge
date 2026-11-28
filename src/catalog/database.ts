@@ -5,24 +5,35 @@ import path from "node:path";
 export const SIDES = ["shared", "client", "server"] as const;
 export type Side = (typeof SIDES)[number];
 export interface StubMetadata {
-  export?: string;
-  global?: true | string;
-  internal?: boolean;
-  alias?: string[];
+	export?: string;
+	global?: true | string;
+	internal?: boolean;
+	alias?: string[];
 }
-export interface Stub { funcName: string; metadata: StubMetadata; stubCode: string }
-export interface LuaClass { className: string; code: string }
-export interface ModuleSource { code: string; stubs: Stub[]; types: LuaClass[] }
+export interface Stub {
+	funcName: string;
+	metadata: StubMetadata;
+	stubCode: string;
+}
+export interface LuaClass {
+	className: string;
+	code: string;
+}
+export interface ModuleSource {
+	code: string;
+	stubs: Stub[];
+	types: LuaClass[];
+}
 export type ModuleData = Record<Side, ModuleSource | null> & {
-  ns: string | null;
-  meta: { internal?: boolean; [key: string]: unknown };
-  dependencies?: string[];
+	ns: string | null;
+	meta: { internal?: boolean; [key: string]: unknown };
+	dependencies?: string[];
 };
 export interface ModuleDatabase {
-  version: string;
-  modules: Record<string, ModuleData>;
-  registry: Record<string, string>;
-  publicExports: Record<string, string[]>;
+	version: string;
+	modules: Record<string, ModuleData>;
+	registry: Record<string, string>;
+	publicExports: Record<string, string[]>;
 }
 
 let _dbCache: ModuleDatabase | undefined;
@@ -49,8 +60,7 @@ export function getModuleData(modName: string): ModuleData | undefined {
 	return Object.hasOwn(modules, modName) ? modules[modName] : undefined;
 }
 
-
 export function isPublicModule(id: string): boolean {
 	const module = getModuleData(id);
-	return id !== '__init__' && module !== undefined && !module.meta.internal;
+	return id !== "__init__" && module !== undefined && !module.meta.internal;
 }

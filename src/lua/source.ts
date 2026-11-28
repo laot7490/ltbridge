@@ -1,77 +1,57 @@
-export function skipStringOrComment(code: string, i: number, len = code.length) {
-	const c = code[i];
-	if (c === '"' || c === "'" || c === "`") {
-		const quote = c;
-		i++;
-		while (i < len) {
-			if (code[i] === "\\") {
-				i += 2;
+export function skipStringOrComment(code: string, index: number) {
+	const length = code.length;
+	const character = code[index];
+	if (character === '"' || character === "'" || character === "`") {
+		const quote = character;
+		index++;
+		while (index < length) {
+			if (code[index] === "\\") {
+				index += 2;
 				continue;
 			}
-			if (code[i] === quote) return i + 1;
-			i++;
+			if (code[index] === quote) return index + 1;
+			index++;
 		}
-		return len;
+		return length;
 	}
-	if (c === "[") {
-		let j = i + 1;
-		let equalsCount = 0;
-		while (j < len && code[j] === "=") {
-			equalsCount++;
-			j++;
-		}
-		if (j < len && code[j] === "[") {
-			const endToken = "]" + "=".repeat(equalsCount) + "]";
-			const endIndex = code.indexOf(endToken, j + 1);
-			return endIndex === -1 ? len : endIndex + endToken.length;
+	const isComment = character === "-" && code[index + 1] === "-";
+	const opening = isComment ? index + 2 : index;
+	if (code[opening] === "[") {
+		let cursor = opening + 1;
+		while (code[cursor] === "=") cursor++;
+		if (code[cursor] === "[") {
+			const closing = "]" + "=".repeat(cursor - opening - 1) + "]";
+			const end = code.indexOf(closing, cursor + 1);
+			return end === -1 ? length : end + closing.length;
 		}
 	}
-	if (c === "-" && i + 1 < len && code[i + 1] === "-") {
-		let j = i + 2;
-		if (j < len && code[j] === "[") {
-			let k = j + 1;
-			let equalsCount = 0;
-			while (k < len && code[k] === "=") {
-				equalsCount++;
-				k++;
-			}
-			if (k < len && code[k] === "[") {
-				const endToken = "]" + "=".repeat(equalsCount) + "]";
-				const endIndex = code.indexOf(endToken, k + 1);
-				return endIndex === -1 ? len : endIndex + endToken.length;
-			}
-		}
-		const endIndex = code.indexOf("\n", j);
-		return endIndex === -1 ? len : endIndex;
+	if (isComment) {
+		const newline = code.indexOf("\n", opening);
+		return newline === -1 ? length : newline;
 	}
-	return i;
+	return index;
 }
 
-function strip(code: string, maskStrings: boolean): string {
+export function stripLuaSource(code: string, mode: "strip-comments" | "mask-for-scan"): string {
+	const maskForScan = mode === "mask-for-scan";
+	const spanPattern = maskForScan ? /[^\r\n]/g : /[^\r\n]+/g;
 	const parts: string[] = [];
-	let start = 0;
-	for (let i = 0; i < code.length; i++) {
-		const end = skipStringOrComment(code, i);
-		if (end === i) continue;
-		const comment = code.startsWith("--", i);
-		if (comment || maskStrings) {
-			parts.push(code.slice(start, i));
-			const span = code.slice(i, end);
-			parts.push(maskStrings ? span.replace(/[^\r\n]/g, " ") : span.replace(/[^\r\n]+/g, " "));
-			start = end;
+	let copyFrom = 0;
+	for (let index = 0; index < code.length; index++) {
+		const end = skipStringOrComment(code, index);
+		if (end === index) continue;
+		const comment = code.startsWith("--", index);
+		if (comment || maskForScan) {
+			parts.push(code.slice(copyFrom, index));
+			const span = code.slice(index, end);
+			parts.push(span.replace(spanPattern, " "));
+			copyFrom = end;
 		}
-		i = end - 1;
+		index = end - 1;
 	}
-	parts.push(code.slice(start));
-	return parts.join("");
-}
-
-export function stripLuaComments(code: string): string {
-	return strip(code, false).trim();
-}
-
-export function stripLuaForScan(code: string): string {
-	return strip(code, true);
+	parts.push(code.slice(copyFrom));
+	const result = parts.join("");
+	return maskForScan ? result : result.trim();
 }
 
 export function mapLuaCode(source: string, transform: (code: string, offset: number) => string): string {

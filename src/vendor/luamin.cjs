@@ -163,31 +163,7 @@ let AllIdentChars = [
 
 let Digits = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
 
-let HexDigits = [
-	"0",
-	"1",
-	"2",
-	"3",
-	"4",
-	"5",
-	"6",
-	"7",
-	"8",
-	"9",
-
-	"a",
-	"b",
-	"c",
-	"d",
-	"e",
-	"f",
-	"A",
-	"B",
-	"C",
-	"D",
-	"E",
-	"F",
-];
+let HexDigits = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c", "d", "e", "f", "A", "B", "C", "D", "E", "F"];
 
 let Symbols = ["+", "-", "*", ")", ";", "/", "^", "%", "#", ",", "{", "}", ":", "[", "]", "(", ".", "`"];
 
@@ -2640,10 +2616,7 @@ function StripAst(ast) {
 	function joint(tokenA, tokenB, shit = false) {
 		stript(tokenB);
 
-		let lastCh = (typeof tokenA.Source == "string" ? tokenA.Source : tokenA.Source.toString()).substr(
-			tokenA.Source.length - 1,
-			1,
-		);
+		let lastCh = (typeof tokenA.Source == "string" ? tokenA.Source : tokenA.Source.toString()).substr(tokenA.Source.length - 1, 1);
 		let firstCh = (typeof tokenB.Source == "string" ? tokenB.Source : tokenB.Source.toString()).substr(0, 1);
 
 		if (
@@ -2826,11 +2799,7 @@ function StripAst(ast) {
 					if (stat.SemicolonList[i - 1]) {
 						let lastS = lastChStat.GetLastToken().Source;
 						let firstS = chStat.GetFirstToken().Source;
-						if (
-							bannedCombos[lastS] === null ||
-							bannedCombos[lastS] === undefined ||
-							!bannedCombos[lastS].includes(firstS)
-						) {
+						if (bannedCombos[lastS] === null || bannedCombos[lastS] === undefined || !bannedCombos[lastS].includes(firstS)) {
 							stat.SemicolonList[i - 1] = null;
 						}
 					}
@@ -3312,10 +3281,7 @@ function foldUnary(result, op, arg) {
 			break;
 		case "#":
 			if (arg.Type === "StringLiteral") {
-				transformA2B(
-					result,
-					createLiteral("NumberLiteral", removeStringChars(arg.Token.Source).length, op.LeadingWhite),
-				);
+				transformA2B(result, createLiteral("NumberLiteral", removeStringChars(arg.Token.Source).length, op.LeadingWhite));
 			}
 			break;
 	}
@@ -3327,11 +3293,7 @@ function foldBinary(result, op, la, ra) {
 			if (la.Type === "NumberLiteral" && ra.Type === "NumberLiteral") {
 				transformA2B(
 					result,
-					createLiteral(
-						"NumberLiteral",
-						parseFloat(la.Token.Source) + parseFloat(ra.Token.Source),
-						la.GetFirstToken().LeadingWhite,
-					),
+					createLiteral("NumberLiteral", parseFloat(la.Token.Source) + parseFloat(ra.Token.Source), la.GetFirstToken().LeadingWhite),
 				);
 			} // todo : else if (Vector...)
 
@@ -3340,11 +3302,7 @@ function foldBinary(result, op, la, ra) {
 			if (la.Type === "NumberLiteral" && ra.Type === "NumberLiteral") {
 				transformA2B(
 					result,
-					createLiteral(
-						"NumberLiteral",
-						parseFloat(la.Token.Source) - parseFloat(ra.Token.Source),
-						la.GetFirstToken().LeadingWhite,
-					),
+					createLiteral("NumberLiteral", parseFloat(la.Token.Source) - parseFloat(ra.Token.Source), la.GetFirstToken().LeadingWhite),
 				);
 			} // todo : else if (Vector...)
 
@@ -3353,11 +3311,7 @@ function foldBinary(result, op, la, ra) {
 			if (la.Type === "NumberLiteral" && ra.Type === "NumberLiteral") {
 				transformA2B(
 					result,
-					createLiteral(
-						"NumberLiteral",
-						parseFloat(la.Token.Source) * parseFloat(ra.Token.Source),
-						la.GetFirstToken().LeadingWhite,
-					),
+					createLiteral("NumberLiteral", parseFloat(la.Token.Source) * parseFloat(ra.Token.Source), la.GetFirstToken().LeadingWhite),
 				);
 			} // todo : else if (Vector...)
 
@@ -3366,11 +3320,7 @@ function foldBinary(result, op, la, ra) {
 			if (la.Type === "NumberLiteral" && ra.Type === "NumberLiteral") {
 				transformA2B(
 					result,
-					createLiteral(
-						"NumberLiteral",
-						parseFloat(la.Token.Source) / parseFloat(ra.Token.Source),
-						la.GetFirstToken().LeadingWhite,
-					),
+					createLiteral("NumberLiteral", parseFloat(la.Token.Source) / parseFloat(ra.Token.Source), la.GetFirstToken().LeadingWhite),
 				);
 			} // todo : else if (Vector...)
 
@@ -3391,10 +3341,7 @@ function foldBinary(result, op, la, ra) {
 		case "%":
 			if (la.Type === "NumberLiteral" && ra.Type === "NumberLiteral") {
 				let [la1, ra1] = [parseFloat(la.Token.Source), parseFloat(ra.Token.Source)];
-				transformA2B(
-					result,
-					createLiteral("NumberLiteral", la1 - Math.floor(la1 / ra1) * ra1, la.GetFirstToken().LeadingWhite),
-				);
+				transformA2B(result, createLiteral("NumberLiteral", la1 - Math.floor(la1 / ra1) * ra1, la.GetFirstToken().LeadingWhite));
 			}
 
 			break;
@@ -3414,11 +3361,7 @@ function foldBinary(result, op, la, ra) {
 			if (la.Type === "StringLiteral" && ra.Type === "StringLiteral") {
 				transformA2B(
 					result,
-					createLiteral(
-						"StringLiteral",
-						Math.floor(la.Token.Source + ra.Token.Source),
-						la.GetFirstToken().LeadingWhite,
-					),
+					createLiteral("StringLiteral", Math.floor(la.Token.Source + ra.Token.Source), la.GetFirstToken().LeadingWhite),
 				);
 			}
 			break;
@@ -3436,11 +3379,7 @@ function foldBinary(result, op, la, ra) {
 			if (la.Type === "NumberLiteral" && ra.Type === "NumberLiteral") {
 				transformA2B(
 					result,
-					createLiteral(
-						"BooleanLiteral",
-						parseFloat(la.Token.Source) < parseFloat(ra.Token.Source),
-						la.GetFirstToken().LeadingWhite,
-					),
+					createLiteral("BooleanLiteral", parseFloat(la.Token.Source) < parseFloat(ra.Token.Source), la.GetFirstToken().LeadingWhite),
 				);
 			}
 			break;
@@ -3448,11 +3387,7 @@ function foldBinary(result, op, la, ra) {
 			if (la.Type === "NumberLiteral" && ra.Type === "NumberLiteral") {
 				transformA2B(
 					result,
-					createLiteral(
-						"BooleanLiteral",
-						parseFloat(la.Token.Source) <= parseFloat(ra.Token.Source),
-						la.GetFirstToken().LeadingWhite,
-					),
+					createLiteral("BooleanLiteral", parseFloat(la.Token.Source) <= parseFloat(ra.Token.Source), la.GetFirstToken().LeadingWhite),
 				);
 			}
 			break;
@@ -3460,11 +3395,7 @@ function foldBinary(result, op, la, ra) {
 			if (la.Type === "NumberLiteral" && ra.Type === "NumberLiteral") {
 				transformA2B(
 					result,
-					createLiteral(
-						"BooleanLiteral",
-						parseFloat(la.Token.Source) > parseFloat(ra.Token.Source),
-						la.GetFirstToken().LeadingWhite,
-					),
+					createLiteral("BooleanLiteral", parseFloat(la.Token.Source) > parseFloat(ra.Token.Source), la.GetFirstToken().LeadingWhite),
 				);
 			}
 			break;
@@ -3472,11 +3403,7 @@ function foldBinary(result, op, la, ra) {
 			if (la.Type === "NumberLiteral" && ra.Type === "NumberLiteral") {
 				transformA2B(
 					result,
-					createLiteral(
-						"BooleanLiteral",
-						parseFloat(la.Token.Source) >= parseFloat(ra.Token.Source),
-						la.GetFirstToken().LeadingWhite,
-					),
+					createLiteral("BooleanLiteral", parseFloat(la.Token.Source) >= parseFloat(ra.Token.Source), la.GetFirstToken().LeadingWhite),
 				);
 			}
 			break;

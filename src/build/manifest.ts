@@ -1,16 +1,12 @@
+import { log } from "../cli/log";
 import fs from "node:fs";
 import path from "node:path";
 import { writeIfChanged } from "../project/config";
-import { skipStringOrComment, stripLuaForScan } from "../lua/source";
+import { skipStringOrComment, stripLuaSource } from "../lua/source";
 
-function findBlockEnd(content: string, openBraceIndex: number) {
+function findClosingBrace(content: string, openBraceIndex: number) {
 	let depth = 0;
 	for (let i = openBraceIndex; i < content.length; i++) {
-		const end = skipStringOrComment(content, i);
-		if (end > i) {
-			i = end - 1;
-			continue;
-		}
 		if (content[i] === "{") depth++;
 		if (content[i] === "}" && --depth === 0) return i;
 	}
@@ -20,31 +16,70 @@ function findBlockEnd(content: string, openBraceIndex: number) {
 
 function* pluralBlocks(content: string, keywordPlural: string) {
 	const pluralRegex = new RegExp("^[ \\t]*" + keywordPlural + "\\s*\\{", "gm");
-	for (const match of stripLuaForScan(content).matchAll(pluralRegex)) {
+	const maskedSource = stripLuaSource(content, "mask-for-scan");
+	for (const match of maskedSource.matchAll(pluralRegex)) {
 		const blockStart = match.index;
 		const openBrace = blockStart + match[0].length - 1;
-		const blockEnd = findBlockEnd(content, openBrace);
+		const blockEnd = findClosingBrace(maskedSource, openBrace);
 		if (blockEnd !== -1) yield { openBrace, blockStart, blockContent: content.slice(blockStart, blockEnd + 1) };
 	}
 }
 
-function entrySpan(block: string, file: string): [number, number] | undefined {
-	for (let i = 0; i < block.length; i++) {
+function skipTrivia(block: string, i: number) {
+	while (i < block.length) {
+		if (/\s/.test(block[i])) i++;
+		else if (block.startsWith("--", i)) i = skipStringOrComment(block, i);
+		else break;
+	}
+	return i;
+}
+
+function* managedEntries(block: string, openBrace: number, file: string) {
+	let depth = 0;
+	let blocks = 0;
+	let fieldStart = true;
+	const word = /[a-zA-Z_][a-zA-Z0-9_]*/y;
+	for (let i = openBrace + 1; i < block.length; ) {
+		i = skipTrivia(block, i);
+		if (i >= block.length) break;
+		const token = block[i];
 		const end = skipStringOrComment(block, i);
-		if (end === i) continue;
-		if ((block[i] === "'" || block[i] === '"') && block.slice(i + 1, end - 1) === file) return [i, end];
-		i = end - 1;
+		if (end > i) {
+			if (fieldStart && (token === "'" || token === '"') && block.slice(i + 1, end - 1) === file) {
+				const next = skipTrivia(block, end);
+				if (block[next] === "}" || block[next] === "," || block[next] === ";") {
+					yield { start: i, end, next };
+				}
+			}
+			fieldStart = false;
+			i = end;
+			continue;
+		}
+		word.lastIndex = i;
+		const identifier = word.exec(block)?.[0];
+		if (identifier === "function" || identifier === "do" || identifier === "if" || identifier === "repeat") blocks++;
+		else if (identifier === "end" || identifier === "until") blocks--;
+		if (token === "{" || token === "(" || token === "[") depth++;
+		else if (token === "}" || token === ")" || token === "]") depth--;
+		fieldStart = depth === 0 && blocks === 0 && (token === "," || token === ";");
+		i += identifier?.length ?? 1;
 	}
 }
 
 function findDirective(content: string, expression: RegExp): RegExpExecArray | undefined {
-	const visible = stripLuaForScan(content);
+	const maskedSource = stripLuaSource(content, "mask-for-scan");
 	for (const match of content.matchAll(expression)) {
-		if (visible.slice(match.index, match.index + match[0].length).trim()) return match;
+		if (maskedSource.slice(match.index, match.index + match[0].length).trim()) return match;
 	}
 }
 
-export function prepareManifest(targetDir: string, hasClient: boolean, hasServer: boolean, hasShared: boolean, isIndividual = false): (() => void) | undefined {
+export function prepareManifest(
+	targetDir: string,
+	hasClient: boolean,
+	hasServer: boolean,
+	hasShared: boolean,
+	isIndividual = false,
+): (() => void) | undefined {
 	const manifestNames = ["fxmanifest.lua", "__resource.lua"];
 	let manifestPath = null;
 
@@ -57,7 +92,7 @@ export function prepareManifest(targetDir: string, hasClient: boolean, hasServer
 	}
 
 	if (!manifestPath) {
-		console.log(`\x1b[33m! No fxmanifest.lua or __resource.lua found. Skipping manifest injection.\x1b[0m`);
+		log(`! No fxmanifest.lua or __resource.lua found. Skipping manifest injection.`, "yellow");
 		return;
 	}
 
@@ -67,7 +102,6 @@ export function prepareManifest(targetDir: string, hasClient: boolean, hasServer
 
 	const injectBlock = (type: string, entryPath: string) => {
 		const keywordMatch = type.replace("_scripts", "_script").replace("files", "file");
-		const keywordPlural = type;
 		const entry = `'${entryPath}'`;
 		const singularPattern = new RegExp(`^[ \\t]*${keywordMatch}(?:[ \\t]+(?=['"])|[ \\t]*\\()`, "gm");
 		const firstSingular = findDirective(content, singularPattern);
@@ -78,7 +112,7 @@ export function prepareManifest(targetDir: string, hasClient: boolean, hasServer
 			return;
 		}
 
-		const [block] = pluralBlocks(content, keywordPlural);
+		const [block] = pluralBlocks(content, type);
 		const singular = findDirective(content, singularPattern);
 		if (singular && (!block || singular.index < block.blockStart)) {
 			removePlural(type, entryPath);
@@ -88,34 +122,31 @@ export function prepareManifest(targetDir: string, hasClient: boolean, hasServer
 			return;
 		}
 		if (block) {
-			const existing = entrySpan(block.blockContent, entryPath);
-			let first = block.openBrace + 1;
-			while (first < content.length) {
-				if (/\s/.test(content[first])) first++;
-				else if (content.startsWith("--", first)) first = skipStringOrComment(content, first);
-				else break;
-			}
-			const alreadyFirst = existing && block.blockStart + existing[0] === first;
+			const first = skipTrivia(content, block.openBrace + 1);
+			const [existing] = managedEntries(block.blockContent, block.openBrace - block.blockStart, entryPath);
+			const alreadyFirst = existing && block.blockStart + existing.start === first;
 			removePlural(type, entryPath, alreadyFirst ? first : undefined);
 			if (alreadyFirst) return;
 			const { openBrace } = block;
-			content =
-				content.substring(0, openBrace + 1) +
-				`\n    ${entry},` +
-				content.substring(openBrace + 1);
+			content = content.substring(0, openBrace + 1) + `\n    ${entry},` + content.substring(openBrace + 1);
 			injected = true;
 			return;
 		}
 
-		content += `\n\n${keywordPlural} {\n    ${entry}\n}`;
+		content += `\n\n${type} {\n    ${entry}\n}`;
 		injected = true;
 	};
 
 	const removeSingular = (keyword: string, entryPath: string, keepAt?: number) => {
 		const escaped = entryPath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-		const expression = new RegExp(`^[ \\t]*${keyword}(?:[ \\t]+(['"])${escaped}\\1|[ \\t]*\\([ \\t]*(['"])${escaped}\\2[ \\t]*\\))[ \\t]*;?`, "gm");
-		const visible = stripLuaForScan(content);
-		const matches = [...content.matchAll(expression)].filter((match) => visible.slice(match.index, match.index + match[0].length).trim());
+		const expression = new RegExp(
+			`^[ \\t]*${keyword}(?:[ \\t]+(['"])${escaped}\\1|[ \\t]*\\([ \\t]*(['"])${escaped}\\2[ \\t]*\\))[ \\t]*;?`,
+			"gm",
+		);
+		const maskedSource = stripLuaSource(content, "mask-for-scan");
+		const matches = [...content.matchAll(expression)].filter((match) =>
+			maskedSource.slice(match.index, match.index + match[0].length).trim(),
+		);
 		for (const match of matches.filter((entry) => entry.index !== keepAt).reverse()) {
 			content = content.slice(0, match.index) + content.slice(match.index + match[0].length);
 			injected = true;
@@ -125,17 +156,14 @@ export function prepareManifest(targetDir: string, hasClient: boolean, hasServer
 
 	const removePlural = (type: string, entryPath: string, keepAt?: number) => {
 		for (const block of [...pluralBlocks(content, type)].reverse()) {
-			const entries: [number, number][] = [];
-			let offset = 0;
-			let entry;
-			while ((entry = entrySpan(block.blockContent.slice(offset), entryPath))) {
-				const start = block.blockStart + offset + entry[0];
-				offset += entry[1];
-				if (start !== keepAt) entries.push([start, block.blockStart + offset]);
-			}
-			for (const [start, end] of entries.reverse()) {
-				const separator = /^[ \t]*[,;]/.exec(content.slice(end));
-				content = content.slice(0, start) + content.slice(end + (separator?.[0].length ?? 0));
+			const entries = [...managedEntries(block.blockContent, block.openBrace - block.blockStart, entryPath)];
+			for (const { start, end, next } of entries.reverse()) {
+				const offset = block.blockStart;
+				if (offset + start === keepAt) continue;
+				const trivia = block.blockContent.slice(end, next);
+				const hasSeparator = block.blockContent[next] !== "}";
+				const suffix = offset + (hasSeparator ? next + 1 : end);
+				content = content.slice(0, offset + start) + (hasSeparator && trivia.trim() ? trivia : "") + content.slice(suffix);
 				injected = true;
 			}
 		}
@@ -168,13 +196,9 @@ export function prepareManifest(targetDir: string, hasClient: boolean, hasServer
 		removeBlock("files", "imports/**/*.lua");
 	}
 
-	if (injected) return () => {
-		writeIfChanged(manifestPath, newline === "\r\n" ? content.replace(/\r?\n/g, "\r\n") : content);
-		console.log(`\x1b[32m✓ Updated manifest.\x1b[0m`);
-	};
-}
-
-
-export function updateManifest(...args: Parameters<typeof prepareManifest>) {
-	prepareManifest(...args)?.();
+	if (injected)
+		return () => {
+			writeIfChanged(manifestPath, newline === "\r\n" ? content.replace(/\r?\n/g, "\r\n") : content);
+			log(`✓ Updated manifest.`, "green");
+		};
 }
